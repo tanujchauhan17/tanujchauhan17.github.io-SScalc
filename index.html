@@ -6,13 +6,12 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/tanujchauhan17.github.io-SScalc/favicon-16x16.png">
     <link rel="manifest" href="/tanujchauhan17.github.io-SScalc/site.webmanifest">
 
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Surya Siddhanta Astronomical Calculator</title>
+    <title>Modern & Ancient Astronomical Calculator</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <!-- Modern Astronomy Engine (Uses VSOP87 and ELP2000 models) -->
+    <script src="https://cdn.jsdelivr.net/npm/astronomy-engine@2.1.19/astronomy.browser.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body {
@@ -41,18 +40,9 @@
             padding: 0.5rem 0;
             border-bottom: 1px solid #e5e7eb;
         }
-        .result-row:last-child {
-            border-bottom: none;
-        }
-        .result-label {
-            font-weight: 500;
-            color: #4b5563;
-        }
-        .result-value {
-            font-weight: 600;
-            color: #1f2937;
-            text-align: right;
-        }
+        .result-row:last-child { border-bottom: none; }
+        .result-label { font-weight: 500; color: #4b5563; }
+        .result-value { font-weight: 600; color: #1f2937; text-align: right; }
         .btn-primary {
             background-color: #2563eb;
             color: white;
@@ -61,45 +51,41 @@
             border-radius: 0.5rem;
             transition: background-color 0.3s;
         }
-        .btn-primary:hover {
-            background-color: #1d4ed8;
+        .btn-primary:hover { background-color: #1d4ed8; }
+        .btn-primary:disabled { background-color: #9ca3af; cursor: not-allowed; }
+        .btn-vedic {
+            background: linear-gradient(135deg, #6b21a8, #9333ea);
+            color: white;
+            font-weight: 600;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            transition: opacity 0.3s;
         }
-        .btn-primary:disabled {
-            background-color: #9ca3af;
-            cursor: not-allowed;
-        }
-        input:disabled {
-            background-color: #e5e7eb;
-            cursor: not-allowed;
-        }
-        input[type="datetime-local"], input[type="number"], select {
+        .btn-vedic:hover { opacity: 0.9; }
+        input[type="datetime-local"], input[type="date"], input[type="number"], select {
             border: 1px solid #d1d5db;
             border-radius: 0.375rem;
             padding: 0.5rem 0.75rem;
             background-color: #f9fafb;
         }
-        .eclipse-list li {
+        input:disabled { background-color: #e5e7eb; cursor: not-allowed; }
+        .list-item, .eclipse-list li {
             cursor: pointer;
-            transition: color 0.2s;
+            transition: color 0.2s, background-color 0.2s;
             padding: 0.5rem;
             border-bottom: 1px solid #e5e7eb;
             color: #4b5563;
             font-weight: 500;
             border-radius: 0.25rem;
         }
-        .eclipse-list li:hover {
+        .list-item:hover, .eclipse-list li:hover {
             color: #2563eb;
             background-color: #f9fafb;
         }
-        .eclipse-list li:last-child {
-            border-bottom: none;
-        }
+        .list-item:last-child, .eclipse-list li:last-child { border-bottom: none; }
         .modal-overlay {
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             background: rgba(0, 0, 0, 0.5);
             display: flex;
             align-items: center;
@@ -113,1094 +99,2286 @@
             border-radius: 0.75rem;
             width: 90%;
             max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
             position: relative;
             box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -2px rgb(0 0 0 / 0.05);
         }
-        .clickable-row {
-            cursor: pointer;
-            transition: background-color 0.2s;
+        .modal-content.large-modal { max-width: 900px; }
+        .clickable-row { cursor: pointer; transition: background-color 0.2s; }
+        .clickable-row:hover { background-color: #f3f4f6; }
+        .planet-details-row {
+            background-color: #f8fafc;
+            border-left: 3px solid #6366f1;
+            padding: 0.5rem;
+            font-size: 0.875rem;
+            display: none;
         }
-        .clickable-row:hover {
-            background-color: #f3f4f6;
+        .chart-cell {
+            min-height: 3.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            background: white;
         }
     </style>
 </head>
 <body class="p-4 md:p-8">
 
     <div class="max-w-7xl mx-auto">
-        <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-gray-800">Surya Siddhanta Calculator</h1>
-            <p class="text-lg text-gray-600 mt-2">Ancient Astronomical Calculations in a Modern Interface</p>
-        </header>
+        <!-- Top Navigation -->
+        <div class="flex justify-end items-center space-x-3 mb-4 border-b border-gray-200 pb-4">
+            <button id="top-vedic-btn" class="btn-vedic text-sm shadow">✨ Vedic & Festival Dashboard</button>
+            <button id="switch-calc-btn" class="bg-gray-800 hover:bg-gray-700 text-white font-semibold py-2 px-4 rounded-lg text-sm transition-colors shadow">Switch to SS Calc</button>
+        </div>
 
-        <!-- Input Card -->
-        <div class="card">
-            <h2 class="card-title">Calculation Parameters</h2>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div>
-                    <label for="datetime" class="block text-sm font-medium text-gray-700 mb-1">Date & Time (IST)</label>
-                    <input type="datetime-local" id="datetime" class="w-full">
-                </div>
-                <div>
-                    <label for="latitude" class="block text-sm font-medium text-gray-700 mb-1">Latitude (°)</label>
-                    <div class="flex items-center space-x-2">
-                        <input type="number" id="latitude" value="31.10" step="0.0001" class="w-2/3">
-                        <select id="latitudeDirection" class="w-1/3">
-                            <option value="N">N</option>
-                            <option value="S">S</option>
+        <!-- ========================================== -->
+        <!-- MODERN CALCULATOR VIEW -->
+        <!-- ========================================== -->
+        <div id="modern-view">
+            <header class="text-center mb-6">
+                <h1 class="text-4xl font-bold text-gray-800">Modern Astronomical Calculator</h1>
+                <p class="text-lg text-gray-600 mt-2">Powered by VSOP87 & ELP2000 Ephemeris Models</p>
+            </header>
+
+            <div class="card">
+                <h2 class="card-title">Calculation Parameters</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Location Preset</label>
+                        <select id="preset-location" class="w-full">
+                            <option value="custom">Custom Location</option>
+                            <optgroup label="Himachal Pradesh">
+                                <option value="31.1000,77.1734" selected>Shimla (Default)</option>
+                                <option value="32.2190,76.3234">Dharamshala</option>
+                                <option value="32.2396,77.1887">Manali</option>
+                                <option value="32.2697,76.9322">Mandi</option>
+                                <option value="31.5739,76.9867">Kullu</option>
+                                <option value="31.7087,76.9320">Solan</option>
+                                <option value="32.2285,76.1039">Chamba</option>
+                                <option value="32.1109,76.5363">Palampur</option>
+                                <option value="32.5387,75.9710">Dalhousie</option>
+                                <option value="32.0998,76.2691">Kangra</option>
+                                <option value="30.8543,77.0967">Nahan</option>
+                                <option value="30.5599,76.2757">Una</option>
+                                <option value="31.6862,76.5213">Hamirpur</option>
+                                <option value="31.3260,76.7596">Bilaspur</option>
+                                <option value="31.9579,77.0325">Keylong</option>
+                                <option value="31.5368,78.2736">Reckong Peo</option>
+                            </optgroup>
+                            <optgroup label="Major Indian Cities">
+                                <option value="28.6139,77.2090">New Delhi, Delhi</option>
+                                <option value="19.0760,72.8777">Mumbai, Maharashtra</option>
+                                <option value="12.9716,77.5946">Bengaluru, Karnataka</option>
+                                <option value="13.0827,80.2707">Chennai, Tamil Nadu</option>
+                                <option value="22.5726,88.3639">Kolkata, West Bengal</option>
+                                <option value="17.3850,78.4867">Hyderabad, Telangana</option>
+                                <option value="18.5204,73.8567">Pune, Maharashtra</option>
+                                <option value="23.0225,72.5714">Ahmedabad, Gujarat</option>
+                                <option value="26.9124,75.7873">Jaipur, Rajasthan</option>
+                                <option value="26.8467,80.9462">Lucknow, UP</option>
+                                <option value="25.5941,85.1376">Patna, Bihar</option>
+                                <option value="23.2599,77.4126">Bhopal, MP</option>
+                                <option value="30.7333,76.7794">Chandigarh</option>
+                                <option value="31.6340,74.8723">Amritsar, Punjab</option>
+                                <option value="34.0837,74.7973">Srinagar, J&K</option>
+                                <option value="26.1445,91.7362">Guwahati, Assam</option>
+                                <option value="20.2961,85.8245">Bhubaneswar, Odisha</option>
+                            </optgroup>
                         </select>
                     </div>
-                </div>
-                <div>
-                    <label for="longitude" class="block text-sm font-medium text-gray-700 mb-1">Longitude (°)</label>
-                    <div class="flex items-center space-x-2">
-                        <input type="number" id="longitude" value="77.1734" step="0.0001" class="w-2/3">
-                        <select id="longitudeDirection" class="w-1/3">
-                            <option value="E">E</option>
-                            <option value="W">W</option>
-                        </select>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Date & Time (Local)</label>
+                        <input type="datetime-local" id="datetime" class="w-full">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Latitude (°)</label>
+                        <div class="flex items-center space-x-2">
+                            <input type="number" id="latitude" value="31.10" step="0.0001" class="w-2/3">
+                            <select id="latitudeDirection" class="w-1/3">
+                                <option value="N">N</option>
+                                <option value="S">S</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Longitude (°)</label>
+                        <div class="flex items-center space-x-2">
+                            <input type="number" id="longitude" value="77.1734" step="0.0001" class="w-2/3">
+                            <select id="longitudeDirection" class="w-1/3">
+                                <option value="E">E</option>
+                                <option value="W">W</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex items-end justify-between space-x-4">
+                        <div class="flex items-center pb-2">
+                            <input id="realtime-checkbox" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <label for="realtime-checkbox" class="ml-2 block text-sm font-medium text-gray-900">Real-time</label>
+                        </div>
+                        <button id="calculate-btn" class="btn-primary w-full">Calculate</button>
                     </div>
                 </div>
-                <div class="flex items-end justify-between space-x-4">
-                    <div class="flex items-center">
-                        <input id="realtime-checkbox" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
-                        <label for="realtime-checkbox" class="ml-2 block text-sm font-medium text-gray-900">Real-time</label>
-                    </div>
-                    <button id="calculate-btn" class="btn-primary w-full">Calculate</button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-1 space-y-6">
+                    <div class="card" id="sun-card"></div>
+                    <div class="card" id="tithi-card"></div>
+                </div>
+                <div class="lg:col-span-1 space-y-6">
+                    <div class="card" id="mean-positions-card"></div>
+                </div>
+                <div class="lg:col-span-1 space-y-6">
+                    <div class="card" id="eclipse-card"></div>
+                    <div class="card" id="events-card"></div>
                 </div>
             </div>
         </div>
 
-        <!-- Results Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- ========================================== -->
+        <!-- SURYA SIDDHANTA VIEW -->
+        <!-- ========================================== -->
+        <div id="ss-view" class="hidden">
+            <header class="text-center mb-6">
+                <h1 class="text-4xl font-bold text-gray-800">Surya Siddhanta Calculator</h1>
+                <p class="text-lg text-gray-600 mt-2">Ancient Astronomical Calculations in a Modern Interface</p>
+            </header>
+
+            <div class="card">
+                <h2 class="card-title">Calculation Parameters</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <div>
+                        <label for="ss-datetime" class="block text-sm font-medium text-gray-700 mb-1">Date & Time (IST)</label>
+                        <input type="datetime-local" id="ss-datetime" class="w-full">
+                    </div>
+                    <div>
+                        <label for="ss-latitude" class="block text-sm font-medium text-gray-700 mb-1">Latitude (°)</label>
+                        <div class="flex items-center space-x-2">
+                            <input type="number" id="ss-latitude" value="31.10" step="0.0001" class="w-2/3">
+                            <select id="ss-latitudeDirection" class="w-1/3">
+                                <option value="N">N</option>
+                                <option value="S">S</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label for="ss-longitude" class="block text-sm font-medium text-gray-700 mb-1">Longitude (°)</label>
+                        <div class="flex items-center space-x-2">
+                            <input type="number" id="ss-longitude" value="77.1734" step="0.0001" class="w-2/3">
+                            <select id="ss-longitudeDirection" class="w-1/3">
+                                <option value="E">E</option>
+                                <option value="W">W</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="flex items-end justify-between space-x-4">
+                        <div class="flex items-center">
+                            <input id="ss-realtime-checkbox" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500">
+                            <label for="ss-realtime-checkbox" class="ml-2 block text-sm font-medium text-gray-900">Real-time</label>
+                        </div>
+                        <button id="ss-calculate-btn" class="btn-primary w-full">Calculate</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-1 space-y-6">
+                    <div class="card" id="ss-general-info-card"></div>
+                    <div class="card" id="ss-tithi-card"></div>
+                    <div class="card" id="ss-sun-card"></div>
+                </div>
+                <div class="lg:col-span-1 space-y-6">
+                    <div class="card" id="ss-mean-positions-card"></div>
+                    <div class="card" id="ss-apogee-nodes-card"></div>
+                </div>
+                <div class="lg:col-span-1 space-y-6">
+                    <div class="card" id="ss-eclipse-card"></div>
+                    <div class="card" id="ss-panchak-card"></div>
+                    <div class="card" id="ss-seasonal-card"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- ========================================== -->
+    <!-- MODALS (SHARED & MODERN) -->
+    <!-- ========================================== -->
+    
+    <!-- Vedic Dashboard Modal -->
+    <div id="vedic-modal" class="modal-overlay hidden">
+        <div class="modal-content large-modal">
+            <button id="vedic-modal-close-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
+            <h2 class="text-3xl font-bold mb-6 text-center text-purple-900 border-b pb-4">Vedic Astrology & Culture Dashboard</h2>
             
-            <div class="lg:col-span-1 space-y-6">
-                <div class="card" id="general-info-card"></div>
-                <div class="card" id="tithi-card"></div>
-                <div class="card" id="sun-card"></div>
-            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Left Column -->
+                <div class="space-y-6">
+                    <div class="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-lg font-bold text-indigo-800">Horoscope Chart</h3>
+                            <div class="flex space-x-2">
+                                <select id="chart-style" class="text-xs p-1 rounded border border-indigo-200 bg-white cursor-pointer">
+                                    <option value="north">North Indian</option>
+                                    <option value="south">South Indian</option>
+                                </select>
+                                <select id="chart-base" class="text-xs p-1 rounded border border-indigo-200 bg-white cursor-pointer">
+                                    <option value="lagna">Lagna (Asc)</option>
+                                    <option value="moon">Rasi (Moon)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="mb-3 border-b border-indigo-200 pb-3">
+                            <label class="block text-[11px] font-medium text-indigo-700 mb-1 uppercase tracking-wide">Target Date & Time for Chart</label>
+                            <input type="datetime-local" id="chart-datetime" class="w-full text-sm p-1.5 rounded border border-indigo-200 bg-white">
+                        </div>
+                        <p class="text-[10px] text-gray-500 mb-3">As=Ascendant, Su=Sun, Mo=Moon, Ma=Mars, Me=Mercury, Ju=Jupiter, Ve=Venus, Sa=Saturn, Ra=Rahu, Ke=Ketu</p>
+                        <div id="horoscope-container" class="w-full flex justify-center min-h-[350px] items-center">
+                            <!-- Dynamic horoscope cells -->
+                        </div>
+                    </div>
 
-            <div class="lg:col-span-1 space-y-6">
-                <div class="card" id="mean-positions-card"></div>
-                <div class="card" id="apogee-nodes-card"></div>
-            </div>
-
-            <div class="lg:col-span-1 space-y-6">
-                <div class="card" id="eclipse-card"></div>
-                <div class="card" id="panchak-card"></div>
-                <div class="card" id="seasonal-card"></div>
+                    <div>
+                        <h3 class="text-xl font-bold text-indigo-800 mb-3">Planetary Status (Asth & Vakri)</h3>
+                        <p class="text-xs text-gray-500 mb-3">Checks for Combustion (Sun proximity) and Retrograde motion. Click 'Get Timings' to scan ephemeris.</p>
+                        <div id="astrology-container"></div>
+                    </div>
+                    
+                    <div class="bg-purple-50 p-4 rounded-xl border border-purple-100">
+                        <h3 class="text-lg font-bold text-purple-800 mb-2">Panchak Predictions</h3>
+                        <div id="panchak-container" class="space-y-1"></div>
+                    </div>
+                </div>
+                
+                <!-- Right Column -->
+                <div class="space-y-6">
+                    <div>
+                        <div id="festivals-container"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <!-- Eclipse Details Modal -->
-    <div id="eclipse-modal" class="modal-overlay hidden">
+    <!-- Modern Eclipse Details Modal -->
+    <div id="eclipse-modal" class="modal-overlay hidden z-[1050]">
         <div class="modal-content">
             <button id="eclipse-modal-close-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
             <h2 id="eclipse-modal-title" class="text-2xl font-bold mb-4 text-center">Eclipse Details</h2>
             <div class="space-y-3 text-center">
                 <p id="modal-visibility" class="font-bold mb-2"></p>
+                <div id="modal-illustration" class="py-2"></div>
                 <p><strong class="font-semibold text-blue-600">Date:</strong> <span id="modal-date"></span></p>
-                <p><strong class="font-semibold text-purple-600">Position:</strong> <span id="modal-position"></span></p>
-                <p><strong class="font-semibold text-blue-600">Approx. Start:</strong> <span id="modal-start-time"></span></p>
+                <p><strong class="font-semibold text-purple-600">Type:</strong> <span id="modal-position"></span></p>
+                <p><strong class="font-semibold text-blue-600">Start:</strong> <span id="modal-start-time"></span></p>
                 <p><strong class="font-semibold text-red-600">Maximum Eclipse:</strong> <span id="modal-max-time"></span></p>
-                <p><strong class="font-semibold text-blue-600">Approx. End:</strong> <span id="modal-end-time"></span></p>
-                <p class="text-sm text-gray-400 pt-2"><strong class="font-semibold">Global Visibility:</strong> <span id="modal-subcontinents"></span></p>
+                <p><strong class="font-semibold text-blue-600">End:</strong> <span id="modal-end-time"></span></p>
             </div>
         </div>
     </div>
     
-    <!-- Planet Details Modal -->
-    <div id="planet-modal" class="modal-overlay hidden">
+    <!-- Modern Planet Details Modal -->
+    <div id="planet-modal" class="modal-overlay hidden z-[1050]">
         <div class="modal-content">
             <button id="planet-modal-close-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
-            <h2 id="planet-modal-title" class="text-2xl font-bold mb-4 text-center">Planet Details</h2>
-            <div class="text-center mb-4">
-                <p><strong class="font-semibold text-purple-600">Nakshatra:</strong> <span id="planet-modal-nakshatra"></span></p>
+            <h2 id="planet-modal-title" class="text-2xl font-bold mb-2 text-center">Planet Details</h2>
+            <div class="text-center mb-6 border-b pb-4 border-gray-100">
+                <p class="text-md"><strong class="font-semibold text-blue-700">Sign:</strong> <span id="planet-modal-sign"></span></p>
+                <p class="text-md"><strong class="font-semibold text-purple-600">Nakshatra:</strong> <span id="planet-modal-nakshatra"></span></p>
+                <div class="flex justify-center space-x-4 mt-2 text-sm">
+                    <p><strong class="font-semibold text-orange-500">Rise:</strong> <span id="planet-modal-rise"></span></p>
+                    <p><strong class="font-semibold text-indigo-500">Set:</strong> <span id="planet-modal-set"></span></p>
+                </div>
             </div>
-            <h3 class="text-lg font-bold mb-2 text-center text-gray-700">Upcoming Conjunctions</h3>
-            <ul id="planet-modal-conjunctions" class="list-disc list-inside space-y-2 text-center text-gray-600"></ul>
+            <h3 class="text-lg font-bold mb-3 text-center text-gray-700">Upcoming Conjunctions</h3>
+            <p class="text-xs text-center text-gray-500 mb-4">(When Geocentric Apparent Longitudes match. Click to view specifics.)</p>
+            <ul id="planet-modal-conjunctions" class="space-y-2 text-sm text-gray-700"></ul>
         </div>
     </div>
 
+    <!-- Generic Event Details Modal -->
+    <div id="event-modal" class="modal-overlay hidden z-[1060]">
+        <div class="modal-content">
+            <button id="event-modal-close-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
+            <h2 id="event-modal-title" class="text-2xl font-bold mb-2 text-center text-indigo-900">Event Details</h2>
+            <p id="event-modal-subtitle" class="text-center text-gray-500 text-sm mb-4"></p>
+            <div id="event-modal-illustration" class="py-4"></div>
+            <div class="space-y-3 text-center mt-4">
+                <div id="event-modal-visibility" class="mb-2"></div>
+                <p><strong class="font-semibold text-blue-600">Exact Time:</strong> <span id="event-modal-time"></span></p>
+                <div id="event-modal-extra" class="text-sm text-gray-600 mt-4 bg-gray-50 p-3 rounded-lg border border-gray-100"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- SS MODALS -->
+    <!-- ========================================== -->
+    <div id="ss-eclipse-modal" class="modal-overlay hidden z-[1050]">
+        <div class="modal-content">
+            <button id="ss-eclipse-modal-close-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
+            <h2 id="ss-eclipse-modal-title" class="text-2xl font-bold mb-4 text-center">Eclipse Details</h2>
+            <div class="space-y-3 text-center">
+                <p id="ss-modal-visibility" class="font-bold mb-2"></p>
+                <p><strong class="font-semibold text-blue-600">Date:</strong> <span id="ss-modal-date"></span></p>
+                <p><strong class="font-semibold text-purple-600">Position:</strong> <span id="ss-modal-position"></span></p>
+                <p><strong class="font-semibold text-blue-600">Approx. Start:</strong> <span id="ss-modal-start-time"></span></p>
+                <p><strong class="font-semibold text-red-600">Maximum Eclipse:</strong> <span id="ss-modal-max-time"></span></p>
+                <p><strong class="font-semibold text-blue-600">Approx. End:</strong> <span id="ss-modal-end-time"></span></p>
+                <p class="text-sm text-gray-400 pt-2"><strong class="font-semibold">Global Visibility:</strong> <span id="ss-modal-subcontinents"></span></p>
+            </div>
+        </div>
+    </div>
+    
+    <div id="ss-planet-modal" class="modal-overlay hidden z-[1050]">
+        <div class="modal-content">
+            <button id="ss-planet-modal-close-btn" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 text-2xl">&times;</button>
+            <h2 id="ss-planet-modal-title" class="text-2xl font-bold mb-4 text-center">Planet Details</h2>
+            <div class="text-center mb-6 border-b pb-4 border-gray-100">
+                <p class="text-md"><strong class="font-semibold text-blue-700">Sign:</strong> <span id="ss-planet-modal-sign"></span></p>
+                <p class="text-md"><strong class="font-semibold text-purple-600">Nakshatra:</strong> <span id="ss-planet-modal-nakshatra"></span></p>
+                <div class="flex justify-center space-x-4 mt-2 text-sm">
+                    <p><strong class="font-semibold text-orange-500">Rise:</strong> <span id="ss-planet-modal-rise"></span></p>
+                    <p><strong class="font-semibold text-indigo-500">Set:</strong> <span id="ss-planet-modal-set"></span></p>
+                </div>
+            </div>
+            <h3 class="text-lg font-bold mb-2 text-center text-gray-700">Upcoming Conjunctions</h3>
+            <ul id="ss-planet-modal-conjunctions" class="list-disc list-inside space-y-2 text-center text-gray-600"></ul>
+        </div>
+    </div>
+
+
+    <!-- ========================================== -->
+    <!-- VIEW TOGGLE LOGIC -->
+    <!-- ========================================== -->
     <script>
-        // =============================================================================
-        // === SURYA SIDDHANTA CONSTANTS & SETUP
-        // =============================================================================
-        const sun = 4320000;
-        const moon = 57753336;
-        const rahu = -232238;
-        const saturn = 146604;
-        const mars = 2296832;
-        const jupiter = 364220;
-        const venus = 7022376;
-        const mercury = 17937060;
-        const apsis = 488203;
-        const ketu = -232238;
-        const ist_meridian = 82.5;
-        const UJJAIN_LONGITUDE = 75.78; // The prime meridian of the Surya Siddhanta
+        let currentMode = 'modern';
+        const modernView = document.getElementById('modern-view');
+        const ssView = document.getElementById('ss-view');
+        const switchCalcBtn = document.getElementById('switch-calc-btn');
 
-        // Epoch start date, timezone-aware (25 May 2021 in IST)
-        const startEpoch = new Date('2021-05-25T00:00:00.000+05:30');
-        const MS_PER_DAY = 1000 * 60 * 60 * 24;
+        switchCalcBtn.addEventListener('click', () => {
+            if (currentMode === 'modern') {
+                currentMode = 'ss';
+                modernView.classList.add('hidden');
+                ssView.classList.remove('hidden');
+                switchCalcBtn.textContent = 'Switch to Modern Calc';
+                
+                // Sync values
+                document.getElementById('ss-datetime').value = document.getElementById('datetime').value;
+                document.getElementById('ss-latitude').value = document.getElementById('latitude').value;
+                document.getElementById('ss-latitudeDirection').value = document.getElementById('latitudeDirection').value;
+                document.getElementById('ss-longitude').value = document.getElementById('longitude').value;
+                document.getElementById('ss-longitudeDirection').value = document.getElementById('longitudeDirection').value;
+                
+                if(window.ss_runAllCalculations) window.ss_runAllCalculations();
+            } else {
+                currentMode = 'modern';
+                ssView.classList.add('hidden');
+                modernView.classList.remove('hidden');
+                switchCalcBtn.textContent = 'Switch to SS Calc';
+                
+                // Sync values
+                document.getElementById('datetime').value = document.getElementById('ss-datetime').value;
+                document.getElementById('latitude').value = document.getElementById('ss-latitude').value;
+                document.getElementById('latitudeDirection').value = document.getElementById('ss-latitudeDirection').value;
+                document.getElementById('longitude').value = document.getElementById('ss-longitude').value;
+                document.getElementById('longitudeDirection').value = document.getElementById('ss-longitudeDirection').value;
 
-        // Helper functions for math
-        const { sin, cos, tan, PI, asin, abs, acos } = Math;
-        const radians = (deg) => deg * PI / 180;
-        const degrees = (rad) => rad * 180 / PI;
-        
-        // Global variable for the real-time update interval
+                if(window.runAllCalculations) window.runAllCalculations();
+            }
+        });
+    </script>
+
+
+    <!-- ========================================== -->
+    <!-- MODERN CALCULATOR JAVASCRIPT -->
+    <!-- ========================================== -->
+    <script>
+        const Astro = Astronomy; 
         let realtimeInterval = null;
+        let lastHeavyCalcKey = null; 
+        
+        let cache = {
+            solarEclipses: [],
+            lunarEclipses: [],
+            events: [],
+            festivals: [],
+            panchak: { status: '', upcoming: [] },
+            astrologyState: [], 
+            horoscope: { ascendant: 0, planets: [] } 
+        };
 
+        const LIMITS = { defaultPanchak: 4, defaultSolar: 4, defaultLunar: 4, defaultEvents: 5 };
+        let currentLimits = { ...LIMITS };
+        
+        let currentConjunctions = [];
+        let currentPlanetContext = '';
+        let currentConjunctionLimit = 5;
 
-        // =============================================================================
-        // === DOM ELEMENTS
-        // =============================================================================
+        const MS_PER_DAY = 1000 * 60 * 60 * 24;
+        const LUNAR_EPOCH_JD = 2451550.1;
+        const SYNODIC_MONTH = 29.53058867;
+        const AVERAGE_LUNAR_DISTANCE = 384400;
+        const LUNAR_DISTANCE_AMPLITUDE = 21000;
+        const ANOMALISTIC_MONTH = 27.55455;
+        const MOON_PHASE_NAMES = ['New Moon', 'Waxing Crescent', 'First Quarter', 'Waxing Gibbous', 'Full Moon', 'Waning Gibbous', 'Last Quarter', 'Waning Crescent'];
+        const COMBUST_THRESHOLDS = {'Mercury': 14, 'Venus': 10, 'Mars': 17, 'Jupiter': 11, 'Saturn': 15};
+
+        const geoObserver = new Astro.Observer(0, 0, 0);
+        let observer;
+
         const dateTimeInput = document.getElementById('datetime');
-        const latitudeInput = document.getElementById('latitude');
-        const latitudeDirectionInput = document.getElementById('latitudeDirection');
-        const longitudeInput = document.getElementById('longitude');
-        const longitudeDirectionInput = document.getElementById('longitudeDirection');
+        const latitudeInput = document.getElementById('latitude'); 
+        const longitudeInput = document.getElementById('longitude'); 
         const calculateBtn = document.getElementById('calculate-btn');
         const realtimeCheckbox = document.getElementById('realtime-checkbox');
+        const chartDatetimeInput = document.getElementById('chart-datetime');
+        const presetLocationInput = document.getElementById('preset-location');
 
-        // Output card elements
-        const generalInfoCard = document.getElementById('general-info-card');
-        const sunCard = document.getElementById('sun-card');
-        const meanPositionsCard = document.getElementById('mean-positions-card');
-        const apogeeNodesCard = document.getElementById('apogee-nodes-card');
-        const tithiCard = document.getElementById('tithi-card');
-        const eclipseCard = document.getElementById('eclipse-card');
-        const panchakCard = document.getElementById('panchak-card');
-        const seasonalCard = document.getElementById('seasonal-card');
-
-        // Modal elements
-        const eclipseModal = document.getElementById('eclipse-modal');
-        const eclipseModalCloseBtn = document.getElementById('eclipse-modal-close-btn');
-        const modalTitle = document.getElementById('eclipse-modal-title');
-        const modalVisibility = document.getElementById('modal-visibility');
-        const modalDate = document.getElementById('modal-date');
-        const modalPosition = document.getElementById('modal-position');
-        const modalStartTime = document.getElementById('modal-start-time');
-        const modalMaxTime = document.getElementById('modal-max-time');
-        const modalEndTime = document.getElementById('modal-end-time');
-        const modalSubcontinents = document.getElementById('modal-subcontinents');
-
-        const planetModal = document.getElementById('planet-modal');
-        const planetModalCloseBtn = document.getElementById('planet-modal-close-btn');
-        const planetModalTitle = document.getElementById('planet-modal-title');
-        const planetModalNakshatra = document.getElementById('planet-modal-nakshatra');
-        const planetModalConjunctions = document.getElementById('planet-modal-conjunctions');
-
-
-        // =============================================================================
-        // === HELPER & CORE CALCULATION FUNCTIONS
-        // =============================================================================
-
-        function pyMod(n, m) {
-            return ((n % m) + m) % m;
-        }
-
-        function isInCircularRange(value, center, window) {
-            const lower_bound = pyMod(center - window, 360);
-            const upper_bound = pyMod(center + window, 360);
-            if (lower_bound < upper_bound) {
-                return value >= lower_bound && value <= upper_bound;
-            } else { // Handles wrap-around case
-                return value >= lower_bound || value <= upper_bound;
+        presetLocationInput.addEventListener('change', (e) => {
+            if (e.target.value !== 'custom') {
+                const [lat, lon] = e.target.value.split(',').map(parseFloat);
+                latitudeInput.value = Math.abs(lat).toFixed(4);
+                document.getElementById('latitudeDirection').value = lat >= 0 ? 'N' : 'S';
+                longitudeInput.value = Math.abs(lon).toFixed(4);
+                document.getElementById('longitudeDirection').value = lon >= 0 ? 'E' : 'W';
+                runAllCalculations();
             }
-        }
+        });
 
-        function getMeanLongitude(x, X, D) {
-            return pyMod(D * X, 1577917828) * 360 / 1577917828;
-        }
-
-        function getMeanDailyMotion(x, X) {
-            const dmp = X * 360 / 1577917828;
-            return dmp * 60; // in arcminutes
-        }
+        latitudeInput.addEventListener('input', () => { presetLocationInput.value = 'custom'; });
+        longitudeInput.addEventListener('input', () => { presetLocationInput.value = 'custom'; });
         
-        function applyDeshantaraToLongitude(base_longitude, daily_motion_arcmin, user_longitude) {
-            const longitude_diff = user_longitude - UJJAIN_LONGITUDE;
-            const correction_deg = ((daily_motion_arcmin / 60) * longitude_diff) / 360;
-            return pyMod(base_longitude + correction_deg, 360);
+        function updateVedicHoroscope(dateTimeStr) {
+            if (!dateTimeStr) return;
+            let d = new Date(dateTimeStr);
+            if (isNaN(d.getTime())) return;
+            let t = new Astro.AstroTime(d);
+            let lat = parseFloat(latitudeInput.value);
+            let lon = parseFloat(longitudeInput.value);
+            if (document.getElementById('latitudeDirection').value === 'S') lat = -Math.abs(lat);
+            if (document.getElementById('longitudeDirection').value === 'W') lon = -Math.abs(lon);
+            let ayanamsha = getAyanamsha(d);
+            populateHoroscope(t, d, lat, lon, ayanamsha);
         }
 
+        chartDatetimeInput.addEventListener('change', (e) => {
+            updateVedicHoroscope(e.target.value);
+        });
 
-        function getApogeeLongitude(x, X, D, user_longitude) {
-            let ujjain_apogee_long = 0.0;
-            let daily_motion_arcmin = 0;
+        // Modals Toggles
+        document.getElementById('top-vedic-btn').addEventListener('click', () => {
+            document.getElementById('vedic-modal').classList.remove('hidden');
+            let d = new Date(dateTimeInput.value);
+            if(isNaN(d)) d = new Date();
+            chartDatetimeInput.value = d.toISOString().slice(0, 16);
+            updateVedicHoroscope(chartDatetimeInput.value);
+        });
+        document.getElementById('vedic-modal-close-btn').addEventListener('click', () => document.getElementById('vedic-modal').classList.add('hidden'));
+        document.getElementById('eclipse-modal-close-btn').addEventListener('click', () => document.getElementById('eclipse-modal').classList.add('hidden'));
+        document.getElementById('planet-modal-close-btn').addEventListener('click', () => document.getElementById('planet-modal').classList.add('hidden'));
+        document.getElementById('event-modal-close-btn').addEventListener('click', () => document.getElementById('event-modal').classList.add('hidden'));
 
-            if (x === "sun") {
-                X = 387; // Revolutions per Kalpa
-                ujjain_apogee_long = pyMod(D * X, 1577917828000) * 360 / 1577917828000;
-                daily_motion_arcmin = getMeanDailyMotion("sunaps", 0.387);
-            } else if (x === "moon") {
-                X = 488203000; // High precision revolutions per Kalpa
-                ujjain_apogee_long = pyMod(D * X, 1577917828000) * 360 / 1577917828000;
-                daily_motion_arcmin = getMeanDailyMotion("apsis", 488203);
-            }
-            return applyDeshantaraToLongitude(ujjain_apogee_long, daily_motion_arcmin, user_longitude);
-        }
+        document.getElementById('chart-style').addEventListener('change', renderHoroscopeChart);
+        document.getElementById('chart-base').addEventListener('change', renderHoroscopeChart);
 
-        function getEpicycleCircumference(x) {
-            if (x === "sun") return 14 * 60;
-            if (x === "moon") return 32 * 60;
-            return 0;
-        }
+        function pyMod(n, m) { return ((n % m) + m) % m; }
+        function createRow(label, value) { return `<div class="result-row"><span class="result-label">${label}</span><span class="result-value">${value}</span></div>`; }
 
-        function getEpicycleCorrectionFactor(x) {
-            return 20;
-        }
-
-        function getTrueLongitude(x, X, p, D, user_longitude) {
-            const ujjain_mean_long = getMeanLongitude(x, X, D);
-            const corrected_mean_long = applyDeshantaraToLongitude(ujjain_mean_long, getMeanDailyMotion(x, X), user_longitude);
-            let finpos = pyMod(corrected_mean_long + (getMeanDailyMotion(x, X) * p / 60), 360);
-            
-            let paridhi1 = getEpicycleCircumference(x);
-            const paridhis = getEpicycleCorrectionFactor(x);
-            
-            let dm2;
-            if (x === "moon") {
-                dm2 = getMeanDailyMotion("apsis", 488203);
-            } else if (x === "sun") {
-                dm2 = getMeanDailyMotion("sunaps", 0.387);
-            } else {
-                return finpos; 
-            }
-
-            const corrected_apogee_long = getApogeeLongitude(x, X, D, user_longitude);
-            let truepos_val = pyMod((corrected_apogee_long + (dm2 * p / 60)) - finpos, 360);
-            
-            let basesin = sin(radians(truepos_val));
-            if (basesin < 0) basesin = -basesin;
-
-            let dim = 0;
-            if (!((truepos_val > 90 && truepos_val < 180) || (truepos_val > 270))) {
-                dim = basesin * paridhis;
-            }
-            paridhi1 = paridhi1 - dim;
-
-            const finald = ((basesin * 3438 * paridhi1) / (360 * 60)) / 60;
-
-            if (truepos_val < 180) {
-                finpos += finald;
-            } else {
-                finpos -= finald;
-            }
-            return pyMod(finpos, 360);
-        }
-        
-        function getTrueDailyMotion(x, X, p, D, user_longitude) {
-            const ujjain_mean_long = getMeanLongitude(x, X, D);
-            const corrected_mean_long = applyDeshantaraToLongitude(ujjain_mean_long, getMeanDailyMotion(x, X), user_longitude);
-            let finpos = pyMod(corrected_mean_long + (getMeanDailyMotion(x, X) * p / 60), 360);
-
-            let paridhi1 = getEpicycleCircumference(x);
-            const paridhis = getEpicycleCorrectionFactor(x);
-            let dm2;
-            if (x === "moon") {
-                dm2 = getMeanDailyMotion("apsis", 488203);
-            } else if (x === "sun") {
-                dm2 = getMeanDailyMotion("sunaps", 0.387);
-            } else {
-                return getMeanDailyMotion(x, X);
-            }
-            
-            const corrected_apogee_long = getApogeeLongitude(x, X, D, user_longitude);
-            let truepos_val = pyMod((corrected_apogee_long + (dm2 * p / 60)) - finpos, 360);
-
-            let basesin = sin(radians(truepos_val));
-            if (basesin < 0) basesin = -basesin;
-
-            let dim = 0;
-            if (!((truepos_val > 90 && truepos_val < 180) || (truepos_val > 270))) {
-                dim = basesin * paridhis;
-            }
-            paridhi1 = paridhi1 - dim;
-
-            const dmp = getMeanDailyMotion(x, X);
-            let dmaps = (x === "moon") ? getMeanDailyMotion("apsis", 488203) : getMeanDailyMotion("sunaps", 0.387);
-            const dmx = dmp - dmaps;
-
-            let bsin1 = sin(radians(1.875 + truepos_val));
-            let bsin2 = sin(radians(truepos_val - 1.875));
-            if (bsin1 < 0) bsin1 = -bsin1;
-            if (bsin2 < 0) bsin2 = -bsin2;
-
-            const bsindiff = abs((bsin1 - bsin2) * 3438);
-            const diff2 = dmx * (bsindiff) / 225;
-            const findiff = ((diff2 * paridhi1) / (360 * 60));
-
-            let finaldm;
-            if (truepos_val > 90 && truepos_val < 270) {
-                finaldm = dmp + findiff;
-            } else {
-                finaldm = dmp - findiff;
-            }
-            return finaldm;
-        }
-
-        function getAyanamsha(D) {
-            const precession_revolutions = 600;
-            const current_cycle_pos = (pyMod(D * precession_revolutions, 1577917828) * 360) / 1577917828;
-            
-            const angle = current_cycle_pos;
-            let bhuja = 0.0;
-            if (angle <= 90) bhuja = angle;
-            else if (angle <= 180) bhuja = 180 - angle;
-            else if (angle <= 270) bhuja = angle - 180;
-            else bhuja = 360 - angle;
-
-            const ayanamsha = (bhuja * 3) / 10;
-            return { ayanamsha, cycle_pos: current_cycle_pos };
-        }
-
-        function getMeanOppositionLongitude(x, X, D) {
-            let tdo = getMeanLongitude(x, X, D);
-            return (tdo > 180) ? tdo - 180 : tdo + 180;
-        }
-
-        function getZodiacSignInfo(td_val) {
+        function getZodiacSignInfo(degree) {
             const signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
-            const signIndex = Math.floor(pyMod(td_val, 360) / 30);
+            const signIndex = Math.floor(pyMod(degree, 360) / 30);
             return { index: signIndex, name: signs[signIndex] };
         }
 
-        function getNakshatra(finpos) {
-            const nakshatras = [
-                "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigshira", "Aridra",
-                "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni",
-                "Hasta", "Chitra", "Swati", "Vishaka", "Anuradha", "Jyeshtha",
-                "Moola", "Purva Ashada", "Uttar Ashada", "Shravana", "Dhanishta",
-                "Shatbhisha", "Purva Bhadra", "Uttar Bhadra", "Revathi"
-            ];
-            const index = Math.floor(pyMod(finpos, 360) / (360 / 27));
+        function getNakshatra(degree) {
+            const nakshatras = ["Ashwini", "Bharani", "Krittika", "Rohini", "Mrigshira", "Aridra", "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni", "Hasta", "Chitra", "Swati", "Vishaka", "Anuradha", "Jyeshtha", "Moola", "Purva Ashada", "Uttar Ashada", "Shravana", "Dhanishta", "Shatbhisha", "Purva Bhadra", "Uttar Bhadra", "Revathi"];
+            const index = Math.floor(pyMod(degree, 360) / (360 / 27));
             return nakshatras[index] || "Unknown";
         }
-        
-        function getVisibleSubcontinents(date, type) {
-            const utcHour = date.getUTCHours();
-            const utcOffset = utcHour * 15;
-            
-            let centralLon = (type === 'solar') ? pyMod(utcOffset + 180, 360) : pyMod(utcOffset, 360);
-            
-            if (centralLon >= 270 || centralLon < 60) return "The Americas";
-            if (centralLon >= 60 && centralLon < 150) return "Europe, Africa, and West Asia";
-            if (centralLon >= 150 && centralLon < 270) return "Central/South Asia and Oceania";
-            return "The Pacific Ocean region";
+
+        function getAyanamsha(date) {
+            const j2000 = new Date('2000-01-01T12:00:00Z');
+            const years = (date.getTime() - j2000.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+            return 23.857092 + years * (50.290966 / 3600);
         }
-        
-        function predictEclipses(currentDate, D, type, user_longitude) {
-            const isSolar = type === 'solar';
-            let results = [];
-            let td1 = isSolar ? getMeanLongitude("sun", sun, D) : getMeanOppositionLongitude("sun", sun, D);
-            let td2 = getMeanLongitude("moon", moon, D);
-            let p = (td1 - td2) * 1577917828 / ((moon - sun) * 360);
-            if (p < 0) p += (1577917828 / (moon - sun));
-            
-            const rangeWidth = isSolar ? 15 : 12;
 
-            for (let i = 0; i < 30 && results.length < 5; i++) {
-                const tdrf = (getMeanLongitude("rahu", rahu, D) + p * 360 * (rahu / 1577917828));
-                const tdraf2 = (getMeanOppositionLongitude("rahu", rahu, D) + p * 360 * (rahu / 1577917828));
-                const td1f = td1 + p * 360 * (sun / 1577917828);
+        function getGeocentricApparentLongitude(body, time) {
+            const equ = Astro.Equator(body, time, geoObserver, true, true);
+            const ecl = Astro.Ecliptic(equ.vec);
+            return pyMod(ecl.elon, 360);
+        }
 
-                if (isInCircularRange(pyMod(tdrf, 360), pyMod(td1f, 360), rangeWidth) || isInCircularRange(pyMod(tdraf2, 360), pyMod(td1f, 360), rangeWidth)) {
-                    let trueBodyPos, otherBodyPos;
-                    if (isSolar) {
-                        trueBodyPos = getTrueLongitude("sun", sun, p, D, user_longitude);
-                        otherBodyPos = getTrueLongitude("moon", moon, p, D, user_longitude);
-                    } else {
-                        const sunTruePos = getTrueLongitude("sun", sun, p, D, user_longitude);
-                        trueBodyPos = pyMod(sunTruePos + 180, 360);
-                        otherBodyPos = getTrueLongitude("moon", moon, p, D, user_longitude);
+        function getSiderealLongitude(body, time) {
+            let trop = getGeocentricApparentLongitude(body, time);
+            let ayan = getAyanamsha(time.date);
+            return pyMod(trop - ayan, 360);
+        }
+
+        function getAscendant(time, lat, lon, ayanamsha) {
+            let lstHours = Astro.SiderealTime(time);
+            let lstRad = (lstHours * 15 + lon) * Math.PI / 180;
+            let latRad = lat * Math.PI / 180;
+            let obliqRad = 23.439 * Math.PI / 180; 
+            let num = Math.sin(lstRad);
+            let den = Math.cos(lstRad) * Math.cos(obliqRad) + Math.tan(latRad) * Math.sin(obliqRad);
+            let ascRad = Math.atan2(num, den);
+            let ascDeg = pyMod(ascRad * 180 / Math.PI, 360);
+            return pyMod(ascDeg - ayanamsha, 360);
+        }
+
+        function getAngularSeparation(b1, b2, time) {
+            const eq1 = Astro.Equator(b1, time, geoObserver, true, true);
+            const eq2 = Astro.Equator(b2, time, geoObserver, true, true);
+            const ra1 = eq1.ra * 15 * Math.PI / 180;
+            const dec1 = eq1.dec * Math.PI / 180;
+            const ra2 = eq2.ra * 15 * Math.PI / 180;
+            const dec2 = eq2.dec * Math.PI / 180;
+            const cosSep = Math.sin(dec1)*Math.sin(dec2) + Math.cos(dec1)*Math.cos(dec2)*Math.cos(ra1 - ra2);
+            const sepRad = Math.acos(Math.max(-1, Math.min(1, cosSep)));
+            return sepRad * 180 / Math.PI;
+        }
+
+        function getMoonSVG(phaseAngle) {
+            const r = 40; const mid = 50;
+            const cosPh = Math.cos(phaseAngle * Math.PI / 180);
+            const rx = Math.abs(r * cosPh);
+            const isWaxing = phaseAngle <= 180;
+            const outerSweep = isWaxing ? 1 : 0;
+            let innerSweep = 0;
+            if ((phaseAngle > 90 && phaseAngle <= 180) || (phaseAngle > 270 && phaseAngle <= 360)) innerSweep = 1;
+            const outerPath = `M ${mid} ${mid-r} A ${r} ${r} 0 0 ${outerSweep} ${mid} ${mid+r}`;
+            const innerPath = `A ${rx} ${r} 0 0 ${innerSweep} ${mid} ${mid-r}`;
+            return `<svg viewBox="0 0 100 100" class="w-20 h-20 mx-auto drop-shadow-sm"><circle cx="50" cy="50" r="${r}" fill="#374151" /><path d="${outerPath} ${innerPath}" fill="#FDE047" /></svg>`;
+        }
+
+        function getPlanetColor(name) {
+            const colors = { 'Sun': '#FDE047', 'Moon': '#e2e8f0', 'Mercury': '#9ca3af', 'Venus': '#fef08a', 'Mars': '#f87171', 'Jupiter': '#fb923c', 'Saturn': '#fcd34d' };
+            return colors[name] || '#ffffff';
+        }
+
+        function findNextConjunction(body1, body2, startTime) {
+            let t = startTime.AddDays(0);
+            let step = (body1 === 'Moon' || body2 === 'Moon') ? 0.2 : 2.0; 
+            let getL = (b, time) => pyMod(getGeocentricApparentLongitude(b, time), 360);
+            let prevDiff = pyMod(getL(body1, t) - getL(body2, t) + 180, 360) - 180;
+            for (let i = 0; i < 4000; i++) {
+                t = t.AddDays(step);
+                let diff = pyMod(getL(body1, t) - getL(body2, t) + 180, 360) - 180;
+                if (prevDiff * diff <= 0 && Math.abs(diff) < 90) {
+                    let t_low = t.AddDays(-step);
+                    let t_high = t;
+                    for(let r=0; r<6; r++) { 
+                        let t_mid = t_low.AddDays((t_high.ut - t_low.ut)/2);
+                        let mDiff = pyMod(getL(body1, t_mid) - getL(body2, t_mid) + 180, 360) - 180;
+                        if (prevDiff * mDiff <= 0) { t_high = t_mid; diff = mDiff; }
+                        else { t_low = t_mid; prevDiff = mDiff; }
                     }
-                    
-                    let diff = trueBodyPos - otherBodyPos;
-                    if (diff > 180) diff -= 360;
-                    if (diff < -180) diff += 360;
-                    
-                    const x = (diff * 60) / (getTrueDailyMotion("moon", moon, p, D, user_longitude) - getTrueDailyMotion("sun", sun, p, D, user_longitude));
-                    const final_eclipse_time_days = p + x;
-                    
-                    let eclipseDate = new Date(currentDate);
-                    eclipseDate.setHours(0, 0, 0, 0);
-                    eclipseDate.setTime(eclipseDate.getTime() + final_eclipse_time_days * MS_PER_DAY);
-                    
-                    results.push({ date: eclipseDate, offset: final_eclipse_time_days });
+                    return t_high;
                 }
-                p += (1577917828 / (moon - sun));
-            }
-            return results;
-        }
-
-        function calculateRisingPeriods(latitude_deg) {
-            const R = 3438;
-            const GREATEST_DECLINATION_DEG = 23.4392811;
-            const EQUATORIAL_RISING_PRANAS = [1670, 1795, 1935];
-            
-            const lat_rad = radians(latitude_deg);
-            const equinoctial_shadow = 12 * tan(lat_rad);
-            
-            let ascensional_differences_pranas = [];
-            for (const endpoint_deg of [30, 60, 90]) {
-                const sin_greatest_declination_modern = sin(radians(GREATEST_DECLINATION_DEG));
-                const sin_longitude_modern = sin(radians(endpoint_deg));
-                const sin_declination_modern = sin_longitude_modern * sin_greatest_declination_modern;
-                const declination_rad = asin(sin_declination_modern);
-                
-                const sine_declination = R * sin_declination_modern;
-                const day_radius = R * cos(declination_rad);
-                const earth_sine = (sine_declination * equinoctial_shadow) / 12;
-                const sine_asc_diff = (earth_sine * R) / day_radius;
-                
-                const asc_diff_rad = asin(sine_asc_diff / R);
-                const asc_diff_deg = degrees(asc_diff_rad);
-                ascensional_differences_pranas.push(asc_diff_deg * 60);
-            }
-            
-            const cara_khandas = [
-                ascensional_differences_pranas[0],
-                ascensional_differences_pranas[1] - ascensional_differences_pranas[0],
-                ascensional_differences_pranas[2] - ascensional_differences_pranas[1]
-            ];
-            
-            let local_rising_pranas = [
-                EQUATORIAL_RISING_PRANAS[0] - cara_khandas[0],
-                EQUATORIAL_RISING_PRANAS[1] - cara_khandas[1],
-                EQUATORIAL_RISING_PRANAS[2] - cara_khandas[2]
-            ];
-            
-            local_rising_pranas.push(EQUATORIAL_RISING_PRANAS[2] + cara_khandas[2]);
-            local_rising_pranas.push(EQUATORIAL_RISING_PRANAS[1] + cara_khandas[1]);
-            local_rising_pranas.push(EQUATORIAL_RISING_PRANAS[0] + cara_khandas[0]);
-            
-            return local_rising_pranas.concat(local_rising_pranas.slice().reverse());
-        }
-
-        function applyIISTCorrection(local_time_object, longitude_deg) {
-            const longitude_difference = ist_meridian - longitude_deg;
-            const time_correction_seconds = longitude_difference * 4 * 60;
-            return new Date(local_time_object.getTime() + time_correction_seconds * 1000);
-        }
-
-        function calculateBodyRiseSet(body_name, rev_count, latitude_deg, longitude_deg, for_date, D, remainder_days) {
-            const R = 3438;
-            const GREATEST_DECLINATION_DEG = 23.4392811;
-            
-            const body_pos_sidereal = getTrueLongitude(body_name, rev_count, remainder_days, D, longitude_deg);
-            const { ayanamsha, cycle_pos } = getAyanamsha(D);
-            
-            let body_pos_tropical = (cycle_pos > 90 && cycle_pos < 270) ?
-                pyMod(body_pos_sidereal + ayanamsha, 360) :
-                pyMod(body_pos_sidereal - ayanamsha, 360);
-
-            const sin_greatest_declination_modern = sin(radians(GREATEST_DECLINATION_DEG));
-            const sin_longitude_modern = sin(radians(body_pos_tropical));
-            const sin_declination_modern = sin_longitude_modern * sin_greatest_declination_modern;
-            const declination_rad = asin(sin_declination_modern);
-            const sine_declination = R * sin_declination_modern;
-            
-            const is_north_declination = (sine_declination >= 0);
-            
-            const lat_rad = radians(latitude_deg);
-            const equinoctial_shadow = 12 * tan(lat_rad);
-            const day_radius = R * cos(declination_rad);
-            const earth_sine = (abs(sine_declination) * equinoctial_shadow) / 12;
-            const sine_asc_diff = (earth_sine * R) / day_radius;
-            const asc_diff_rad = asin(sine_asc_diff / R);
-            const asc_diff_pranas = degrees(asc_diff_rad) * 60;
-            
-            const quarter_day_pranas = 5400;
-            let half_day_pranas = (is_north_declination) ?
-                quarter_day_pranas + asc_diff_pranas :
-                quarter_day_pranas - asc_diff_pranas;
-            
-            const half_night_pranas = 10800 - half_day_pranas;
-            const local_sunrise_seconds = half_night_pranas * 4;
-            const local_sunset_seconds = (half_night_pranas + (2 * half_day_pranas)) * 4;
-            
-            const midnight = new Date(for_date);
-            midnight.setHours(0, 0, 0, 0);
-            
-            const local_rise_time = new Date(midnight.getTime() + local_sunrise_seconds * 1000);
-            const local_set_time = new Date(midnight.getTime() + local_sunset_seconds * 1000);
-            
-            const ist_rise_time = applyIISTCorrection(local_rise_time, longitude_deg);
-            const ist_set_time = applyIISTCorrection(local_set_time, longitude_deg);
-            
-            return { rise: ist_rise_time, set: ist_set_time };
-        }
-
-        function calculateAscendant(latitude_deg, longitude_deg, time_now, D, remainder_days) {
-            const rising_periods = calculateRisingPeriods(latitude_deg);
-
-            const { rise: current_sunrise, set: current_sunset } = calculateBodyRiseSet("sun", sun, latitude_deg, longitude_deg, time_now, D, remainder_days);
-
-            let reference_time;
-            let is_before_reference;
-
-            if (time_now < current_sunrise) {
-                reference_time = current_sunrise;
-                is_before_reference = true;
-            } else if (time_now >= current_sunrise && time_now <= current_sunset) {
-                reference_time = current_sunrise;
-                is_before_reference = false;
-            } else { // time_now > current_sunset
-                reference_time = current_sunset;
-                is_before_reference = false;
-            }
-
-            const midnight = new Date(reference_time);
-            midnight.setHours(0, 0, 0, 0);
-            const offset_days = (reference_time.getTime() - midnight.getTime()) / MS_PER_DAY;
-            
-            const refDate = new Date(reference_time);
-            const timeDiffRef = refDate.getTime() - startEpoch.getTime();
-            const countRef = Math.floor(timeDiffRef / MS_PER_DAY);
-            const D_ref = 714404167521 + countRef;
-            const sun_pos_at_reference = getTrueLongitude("sun", sun, offset_days, D_ref, longitude_deg);
-
-            let ascendant_longitude;
-
-            if (is_before_reference) { // Calculate BACKWARD from sunrise
-                const time_before_sunrise_seconds = (reference_time.getTime() - time_now.getTime()) / 1000;
-                const pranas_before_sunrise = time_before_sunrise_seconds / 4;
-
-                const sun_sign_index = Math.floor(sun_pos_at_reference / 30);
-                const degrees_in_sign = sun_pos_at_reference % 30;
-
-                const bhukta_pranas = degrees_in_sign * rising_periods[sun_sign_index] / 30;
-                let pranas_to_go_back = pranas_before_sunrise - bhukta_pranas;
-
-                let current_sign_index = (sun_sign_index - 1 + 12) % 12;
-                while (pranas_to_go_back > rising_periods[current_sign_index]) {
-                    pranas_to_go_back -= rising_periods[current_sign_index];
-                    current_sign_index = (current_sign_index - 1 + 12) % 12;
-                }
-                
-                const degrees_to_go_back_into_sign = (pranas_to_go_back * 30) / rising_periods[current_sign_index];
-                const end_of_sign_longitude = (current_sign_index + 1) * 30;
-                ascendant_longitude = end_of_sign_longitude - degrees_to_go_back_into_sign;
-
-            } else { // Calculate FORWARD from sunrise or sunset
-                let starting_lagna;
-                if (reference_time.getTime() === current_sunrise.getTime()) {
-                    starting_lagna = sun_pos_at_reference;
-                } else { // reference is sunset
-                    starting_lagna = pyMod(sun_pos_at_reference + 180, 360);
-                }
-
-                const time_since_ref_seconds = (time_now.getTime() - reference_time.getTime()) / 1000;
-                const time_in_pranas = time_since_ref_seconds / 4;
-                
-                const starting_sign_index = Math.floor(starting_lagna / 30);
-                const degrees_in_sign = starting_lagna % 30;
-                
-                const bhogya_pranas = (30 - degrees_in_sign) * rising_periods[starting_sign_index] / 30;
-                let remaining_pranas = time_in_pranas - bhogya_pranas;
-                
-                let current_sign_index = (starting_sign_index + 1) % 12;
-                while (remaining_pranas > rising_periods[current_sign_index]) {
-                    remaining_pranas -= rising_periods[current_sign_index];
-                    current_sign_index = (current_sign_index + 1) % 12;
-                }
-                
-                const degrees_into_asc_sign = (remaining_pranas * 30) / rising_periods[current_sign_index];
-                ascendant_longitude = (current_sign_index * 30) + degrees_into_asc_sign;
-            }
-            
-            return { ascendant: pyMod(ascendant_longitude, 360), sunrise: current_sunrise };
-        }
-
-
-        function predictPanchakPeriods(currentDate, D, user_longitude) {
-            let results = [];
-            let is_in_panchak = false;
-            
-            const moon_pos_now = getTrueLongitude("moon", moon, 0, D, user_longitude);
-            if (moon_pos_now >= 300) {
-                is_in_panchak = true;
-            }
-
-            for (let day_offset = 0; day_offset < 90 && results.length < 4; day_offset++) {
-                const pos_today = getTrueLongitude("moon", moon, day_offset, D, user_longitude);
-                const pos_tomorrow = getTrueLongitude("moon", moon, day_offset + 1, D, user_longitude);
-
-                if (!is_in_panchak && pos_today < 300 && pos_tomorrow >= 300) {
-                    const daily_motion = pos_tomorrow - pos_today;
-                    const distance_to_go = 300 - pos_today;
-                    const fraction_of_day = distance_to_go / daily_motion;
-                    
-                    let startTime = new Date(currentDate);
-                    startTime.setHours(0,0,0,0);
-                    startTime.setTime(startTime.getTime() + (day_offset + fraction_of_day) * MS_PER_DAY);
-                    results.push({ type: 'Starts', date: startTime });
-                    is_in_panchak = true;
-                }
-
-                if (is_in_panchak && pos_today > 300 && pos_tomorrow < 30) { 
-                    const daily_motion = (pos_tomorrow + 360) - pos_today;
-                    const distance_to_go = 360 - pos_today;
-                    const fraction_of_day = distance_to_go / daily_motion;
-                    
-                    let endTime = new Date(currentDate);
-                    endTime.setHours(0,0,0,0);
-                    endTime.setTime(endTime.getTime() + (day_offset + fraction_of_day) * MS_PER_DAY);
-                    results.push({ type: 'Ends', date: endTime });
-                    is_in_panchak = false;
-                }
-            }
-            return results;
-        }
-        
-        function findCurrentPanchakStart(currentDate, D, user_longitude) {
-            for (let day_offset = 0; day_offset > -90; day_offset--) {
-                const pos_today = getTrueLongitude("moon", moon, day_offset, D, user_longitude);
-                const pos_yesterday = getTrueLongitude("moon", moon, day_offset - 1, D, user_longitude);
-
-                if (pos_yesterday < 300 && pos_today >= 300) {
-                    const daily_motion = pos_today - pos_yesterday;
-                    if (daily_motion <= 0) continue; 
-                    const distance_to_go = 300 - pos_yesterday;
-                    const fraction_of_day = distance_to_go / daily_motion;
-
-                    let startTime = new Date(currentDate);
-                    startTime.setHours(0, 0, 0, 0);
-                    startTime.setTime(startTime.getTime() + ((day_offset - 1) * MS_PER_DAY) + (fraction_of_day * MS_PER_DAY));
-                    return startTime;
-                }
+                prevDiff = diff;
             }
             return null;
         }
 
+        function calculateHeavyData(time, date) {
+            cache.solarEclipses = [];
+            let tS = new Astro.AstroTime(date);
+            for(let i=0; i<20; i++) {
+                let e = Astro.SearchGlobalSolarEclipse(tS);
+                if(!e) break;
+                let startCheck = new Astro.AstroTime(new Date(e.peak.date.getTime() - MS_PER_DAY));
+                let loc = Astro.SearchLocalSolarEclipse(startCheck, observer);
+                e.localDetails = loc;
+                e.isVisible = loc && loc.peak && Math.abs(loc.peak.time.date.getTime() - e.peak.date.getTime()) < 1.5 * MS_PER_DAY;
+                cache.solarEclipses.push(e);
+                tS = new Astro.AstroTime(new Date(e.peak.date.getTime() + 2 * MS_PER_DAY));
+            }
 
-        function predictEquinoxesAndSolstices(currentDate, D, remainder_days, user_longitude) {
-            const sidereal_sun = getTrueLongitude("sun", sun, remainder_days, D, user_longitude);
-            const { ayanamsha, cycle_pos } = getAyanamsha(D);
-            let tropical_sun = (cycle_pos > 90 && cycle_pos < 270) ?
-                pyMod(sidereal_sun + ayanamsha, 360) :
-                pyMod(sidereal_sun - ayanamsha, 360);
+            cache.lunarEclipses = [];
+            let tL = new Astro.AstroTime(date);
+            for(let i=0; i<20; i++) {
+                let e = Astro.SearchLunarEclipse(tL);
+                if(!e) break;
+                let dur = (e.sd_penum || e.sd_partial || e.sd_total || 90);
+                let checkTimes = [ new Astro.AstroTime(new Date(e.peak.date.getTime() - dur * 60000)), e.peak, new Astro.AstroTime(new Date(e.peak.date.getTime() + dur * 60000)) ];
+                e.isVisible = checkTimes.some(ct => Astro.Horizon(ct, observer, Astro.Equator('Moon', ct, observer, true, true).ra, Astro.Equator('Moon', ct, observer, true, true).dec, 'normal').altitude > 0);
+                cache.lunarEclipses.push(e);
+                tL = new Astro.AstroTime(new Date(e.peak.date.getTime() + 2 * MS_PER_DAY));
+            }
 
-            const seasonal_points = {
-                0: "Vernal Equinox", 90: "Summer Solstice",
-                180: "Autumnal Equinox", 270: "Winter Solstice"
-            };
-            const sun_avg_motion_deg = getMeanDailyMotion("sun", sun) / 60;
+            cache.events = [];
+            let mq = Astro.SearchMoonQuarter(time);
+            for(let i=0; i<8; i++) {
+                cache.events.push({ name: ['New Moon', 'First Quarter', 'Full Moon', 'Last Quarter'][mq.quarter], date: mq.time.date, type: 'Phase' });
+                mq = Astro.NextMoonQuarter(mq);
+            }
             
-            const sorted_points = Object.keys(seasonal_points).map(Number).sort((a,b) => a-b);
+            let year = date.getUTCFullYear();
+            for(let y=year; y<=year+1; y++) {
+                let s = Astro.Seasons(y);
+                if (s.mar_equinox.date > date) cache.events.push({name: 'March Equinox', date: s.mar_equinox.date, type: 'Season'});
+                if (s.jun_solstice.date > date) cache.events.push({name: 'June Solstice', date: s.jun_solstice.date, type: 'Season'});
+                if (s.sep_equinox.date > date) cache.events.push({name: 'Sept Equinox', date: s.sep_equinox.date, type: 'Season'});
+                if (s.dec_solstice.date > date) cache.events.push({name: 'Dec Solstice', date: s.dec_solstice.date, type: 'Season'});
+            }
             
-            for (const point of sorted_points) {
-                if (tropical_sun < point) {
-                    const distance = point - tropical_sun;
-                    const days_to_event = distance / sun_avg_motion_deg;
-                    const event_date = new Date(currentDate.getTime() + days_to_event * MS_PER_DAY);
-                    return { name: seasonal_points[point], date: event_date };
+            cache.solarEclipses.slice(0, 5).forEach(e => cache.events.push({name: 'Solar Eclipse', date: e.peak.date, type: 'Eclipse'}));
+            cache.lunarEclipses.slice(0, 5).forEach(e => cache.events.push({name: 'Lunar Eclipse', date: e.peak.date, type: 'Eclipse'}));
+
+            let tOcc = new Astro.AstroTime(date);
+            ['Venus', 'Mars', 'Jupiter', 'Saturn'].forEach(p => {
+                let t = tOcc;
+                for(let i=0; i<3; i++) {
+                    let conj = findNextConjunction('Moon', p, t);
+                    if(conj) {
+                        let sep = getAngularSeparation('Moon', p, conj);
+                        if(sep <= 0.28) cache.events.push({ name: `Moon Occults ${p}`, date: conj.date, type: 'Occultation', b1: 'Moon', b2: p, sep: sep });
+                        t = conj.AddDays(2);
+                    }
                 }
+            });
+
+            cache.events.sort((a,b) => a.date - b.date);
+
+            let rawFestivals = [];
+            let timeIter = new Astro.AstroTime(date);
+            for(let i=0; i<30; i++) { 
+                let fMq = Astro.SearchMoonQuarter(timeIter);
+                if (!fMq) break;
+                let qPhase = fMq.quarter;
+                let qTime = fMq.time;
+                let sunSid = getSiderealLongitude('Sun', qTime);
+
+                if (qPhase === 0) { 
+                    if (sunSid >= 170 && sunSid <= 215) rawFestivals.push({name: "Diwali (Amavasya)", date: qTime.date});
+                    if (sunSid >= 320 && sunSid <= 360) rawFestivals.push({name: "Chaitra Navratri", date: new Date(qTime.date.getTime() + 1*MS_PER_DAY)});
+                    if (sunSid >= 150 && sunSid <= 185) rawFestivals.push({name: "Sharad Navratri", date: new Date(qTime.date.getTime() + 1*MS_PER_DAY)});
+                    if (sunSid >= 290 && sunSid <= 335) rawFestivals.push({name: "Maha Shivaratri", date: new Date(qTime.date.getTime() - 1*MS_PER_DAY)});
+                    if (sunSid >= 110 && sunSid <= 155) rawFestivals.push({name: "Ganesh Chaturthi", date: new Date(qTime.date.getTime() + 4*MS_PER_DAY)});
+                } else if (qPhase === 2) { 
+                    if (sunSid >= 300 && sunSid <= 360) rawFestivals.push({name: "Holi (Purnima)", date: qTime.date});
+                    if (sunSid >= 100 && sunSid <= 150) rawFestivals.push({name: "Raksha Bandhan", date: qTime.date});
+                }
+                timeIter = new Astro.AstroTime(new Date(qTime.date.getTime() + 7 * MS_PER_DAY));
             }
             
-            const distance = (360 - tropical_sun) + sorted_points[0];
-            const days_to_event = distance / sun_avg_motion_deg;
-            const event_date = new Date(currentDate.getTime() + days_to_event * MS_PER_DAY);
-            return { name: seasonal_points[sorted_points[0]], date: event_date };
+            cache.festivals = [];
+            let seen = new Set();
+            rawFestivals.sort((a,b) => a.date - b.date).forEach(f => {
+                if (f.date >= date) {
+                    let key = `${f.name}-${f.date.getFullYear()}`;
+                    if(!seen.has(key)) { seen.add(key); cache.festivals.push(f); }
+                }
+            });
+
+            cache.panchak.upcoming = [];
+            let currentSid = getSiderealLongitude('Moon', time);
+            cache.panchak.status = currentSid >= 300 ? `<span class="text-red-600 font-bold">Currently in Panchak</span>` : `<span class="text-green-600 font-bold">Not in Panchak</span>`;
+            
+            function exactPanchakTime(t1, t2, isStart) {
+                let low = t1.getTime(), high = t2.getTime();
+                for (let step = 0; step < 24; step++) {
+                    let mid = (low + high) / 2;
+                    let sid = getSiderealLongitude('Moon', new Astro.AstroTime(new Date(mid)));
+                    if (isStart) { if (sid < 300 && sid > 100) low = mid; else high = mid; }
+                    else { let adjSid = sid > 180 ? sid - 360 : sid; if (adjSid < 0) low = mid; else high = mid; }
+                }
+                return new Date((low + high) / 2);
+            }
+
+            let tracking = currentSid >= 300;
+            for (let i = 0; i < 180; i++) {
+                let d1 = new Date(date.getTime() + i*MS_PER_DAY);
+                let d2 = new Date(date.getTime() + (i+1)*MS_PER_DAY);
+                let s1 = getSiderealLongitude('Moon', new Astro.AstroTime(d1));
+                let s2 = getSiderealLongitude('Moon', new Astro.AstroTime(d2));
+                if (!tracking && s1 < 300 && s1 > 100 && s2 >= 300) { cache.panchak.upcoming.push({ label: 'Starts', d: exactPanchakTime(d1, d2, true) }); tracking = true; }
+                if (tracking && s1 > 300 && s2 < 30) { cache.panchak.upcoming.push({ label: 'Ends', d: exactPanchakTime(d1, d2, false) }); tracking = false; if (cache.panchak.upcoming.length >= 20) break; }
+            }
+            
+            cache.astrologyState = ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn'].map(p => {
+                let l1 = getGeocentricApparentLongitude(p, time.AddDays(-0.1));
+                let l2 = getGeocentricApparentLongitude(p, time.AddDays(0.1));
+                let isRetrograde = (pyMod(l2 - l1 + 180, 360) - 180) < 0;
+                let isCombust = getAngularSeparation('Sun', p, time) < COMBUST_THRESHOLDS[p];
+                return { planet: p, isRetrograde, isCombust };
+            });
         }
 
-        function getMoonPhaseStatus(selectedDate, D, remainder_days, user_longitude) {
-            const moonTruePos = getTrueLongitude('moon', moon, remainder_days, D, user_longitude);
-            const sunTruePos = getTrueLongitude('sun', sun, remainder_days, D, user_longitude);
-            const moonDailyMotion = getTrueDailyMotion('moon', moon, remainder_days, D, user_longitude) / 60;
-            const sunDailyMotion = getTrueDailyMotion('sun', sun, remainder_days, D, user_longitude) / 60;
-            const relativeSpeed = moonDailyMotion - sunDailyMotion;
-            const diff = pyMod(moonTruePos - sunTruePos, 360);
-
-            const tithiNumber = Math.floor(diff / 12) + 1;
-            
-            // *** NEW: Calculate Tithi Start and End Times ***
-            const targetStartAngle = (tithiNumber - 1) * 12;
-            const targetEndAngle = tithiNumber * 12;
-
-            const angleSinceStart = pyMod(diff - targetStartAngle, 360);
-            const angleUntilEnd = pyMod(targetEndAngle - diff, 360);
-
-            const daysSinceStart = angleSinceStart / relativeSpeed;
-            const daysUntilEnd = angleUntilEnd / relativeSpeed;
-
-            const startTime = new Date(selectedDate.getTime() - daysSinceStart * MS_PER_DAY);
-            const endTime = new Date(selectedDate.getTime() + daysUntilEnd * MS_PER_DAY);
-            
-            const tithiElapsed = Math.floor(diff / 12);
-            
-            let paksha, tithiText;
-            if (diff >= 0 && diff < 180) {
-                paksha = "Waxing (Shukla Paksha)";
-                tithiText = `${tithiElapsed} lunar day${tithiElapsed === 1 ? '' : 's'} elapsed`;
-            } else {
-                paksha = "Waning (Krishna Paksha)";
-                const daysInWaning = tithiElapsed - 15;
-                tithiText = `${daysInWaning} lunar day${daysInWaning === 1 ? '' : 's'} elapsed`;
-            }
-            
-            const TITHI_NAMES = ["Pratipada", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami", "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi"];
-            let tithiName = (tithiNumber <= 15) ? TITHI_NAMES[tithiNumber - 1] : TITHI_NAMES[tithiNumber - 16];
-            if (tithiNumber === 15) tithiName = "Purnima";
-            if (tithiNumber === 30) tithiName = "Amavasya";
-
-            const moonPosInfo = getZodiacSignInfo(moonTruePos);
-            const moonNakshatra = getNakshatra(moonTruePos);
-
-            return { tithiName, tithiNumber, paksha, tithiText, startTime, endTime, moonTruePos, moonPosInfo, moonNakshatra };
+        function renderFestivals() {
+            let content = '<h2 class="text-xl font-bold text-purple-800 mb-3 border-b border-purple-100 pb-2">Upcoming Hindu Festivals</h2><ul class="space-y-1">';
+            if (cache.festivals.length === 0) content += '<li class="text-sm text-gray-500 p-2">No festivals calculated in current range.</li>';
+            else cache.festivals.slice(0, 8).forEach(f => {
+                content += `<li class="p-2 border-b border-gray-100 last:border-none hover:bg-gray-50 rounded flex justify-between items-center transition-colors">
+                    <span class="font-medium text-purple-700">${f.name}</span>
+                    <span class="text-sm text-gray-600 font-semibold">${f.date.toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'})}</span>
+                </li>`;
+            });
+            content += '</ul>';
+            document.getElementById('festivals-container').innerHTML = content;
         }
 
-        // =============================================================================
-        // === MAIN CALCULATION & DISPLAY LOGIC
-        // =============================================================================
+        function renderPanchak() {
+            let container = document.getElementById('panchak-container');
+            if(!container) return;
+            let html = `<div class="flex justify-between py-2 border-b border-purple-100"><span class="font-bold">Current Status:</span><span>${cache.panchak.status}</span></div>`;
+            cache.panchak.upcoming.slice(0, currentLimits.defaultPanchak).forEach(p => {
+                html += `<div class="flex justify-between py-1 text-sm"><span class="font-medium">${p.label}</span><span class="text-gray-700">${p.d.toLocaleString(undefined, {day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit'})}</span></div>`;
+            });
+            html += getPaginationButtons('defaultPanchak', cache.panchak.upcoming.length);
+            container.innerHTML = html;
+        }
 
-        function runAllCalculations() {
-            let currentDateTime;
+        function renderAstrologyBase() {
+            let html = '<div class="overflow-x-auto bg-white rounded-lg border border-gray-200"><table class="w-full text-left"><thead><tr class="bg-indigo-50 text-indigo-900 border-b border-indigo-100"><th class="py-2 px-3">Planet</th><th class="px-2">Motion</th><th class="px-2">Status</th><th class="px-2"></th></tr></thead><tbody>';
+            cache.astrologyState.forEach((state, i) => {
+                let p = state.planet;
+                let motionStr = state.isRetrograde ? '<span class="text-red-600 font-semibold">Retrograde (Vakri)</span>' : '<span class="text-green-600">Direct</span>';
+                let statusStr = state.isCombust ? '<span class="text-orange-600 font-semibold">Combust (Asth)</span>' : '<span class="text-blue-600">Visible</span>';
 
-            if (realtimeCheckbox.checked) {
-                currentDateTime = new Date();
-                const istOffset = 5.5 * 60 * 60 * 1000;
-                const istNow = new Date(currentDateTime.getTime() + istOffset);
-                const year = istNow.getUTCFullYear();
-                const month = (istNow.getUTCMonth() + 1).toString().padStart(2, '0');
-                const day = istNow.getUTCDate().toString().padStart(2, '0');
-                const hours = istNow.getUTCHours().toString().padStart(2, '0');
-                const minutes = istNow.getUTCMinutes().toString().padStart(2, '0');
-                dateTimeInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
-            } else {
-                currentDateTime = new Date(dateTimeInput.value + ':00+05:30');
-            }
+                html += `<tr class="border-b border-gray-100 hover:bg-gray-50">
+                    <td class="py-3 px-3 font-medium text-gray-800">${p}</td><td class="text-sm px-2">${motionStr}</td><td class="text-sm px-2">${statusStr}</td>
+                    <td class="px-2 text-right"><button onclick="scanPlanetTimings('${p}', ${i})" class="text-xs bg-indigo-100 hover:bg-indigo-200 text-indigo-700 px-2 py-1 rounded transition-colors" id="btn-scan-${p}">Get Timings</button></td>
+                </tr>
+                <tr id="details-${p}" class="planet-details-row"><td colspan="4" id="content-${p}"></td></tr>`;
+            });
+            html += '</tbody></table></div>';
+            document.getElementById('astrology-container').innerHTML = html;
+        }
+
+        window.scanPlanetTimings = function(p, idx) {
+            const btn = document.getElementById(`btn-scan-${p}`);
+            const row = document.getElementById(`details-${p}`);
+            const content = document.getElementById(`content-${p}`);
             
-            if (isNaN(currentDateTime.getTime())) {
+            if (row.style.display === 'table-row') {
+                row.style.display = 'none';
+                btn.innerText = 'Get Timings';
                 return;
             }
 
-            let latitude = parseFloat(latitudeInput.value);
-            let longitude = parseFloat(longitudeInput.value);
-            
-            if (latitudeDirectionInput.value === 'S') latitude = -Math.abs(latitude);
-            if (longitudeDirectionInput.value === 'W') longitude = -Math.abs(longitude);
-            
-            const timeDiff = currentDateTime.getTime() - startEpoch.getTime();
-            const count = Math.floor(timeDiff / MS_PER_DAY);
-            const remainder_ms = timeDiff % MS_PER_DAY;
-            const remainder_days = remainder_ms / MS_PER_DAY;
+            btn.innerText = 'Scanning...';
+            content.innerHTML = '<span class="animate-pulse text-gray-500">Scanning ephemeris for next 365 days...</span>';
+            row.style.display = 'table-row';
 
-            const D = 714404167521 + count;
-            const L = pyMod(D, 7);
-            const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+            setTimeout(() => {
+                let baseDate = new Date(dateTimeInput.value);
+                if(isNaN(baseDate.getTime())) baseDate = new Date();
+                let baseTime = new Astro.AstroTime(baseDate);
+                let state = cache.astrologyState[idx];
+                
+                let nextRetroChange = null;
+                let nextCombustChange = null;
+                let tIter = baseTime.AddDays(0);
 
-            populateGeneralInfo(D, weekdays[L], latitude, longitude);
-            populateTithiCard(currentDateTime, D, remainder_days, longitude);
-            populateSunCard(currentDateTime, D, latitude, longitude, remainder_days);
-            populateMeanPositions(D, longitude);
-            populateApogeeNodes(D, longitude);
-            populateEclipses(currentDateTime, D, latitude, longitude);
-            populatePanchak(currentDateTime, D, longitude, remainder_days);
-            populateSeasonal(currentDateTime, D, remainder_days, longitude);
+                for(let i=1; i<=365; i++) {
+                    tIter = tIter.AddDays(1);
+                    
+                    if(!nextRetroChange) {
+                        let l1 = getGeocentricApparentLongitude(p, tIter.AddDays(-0.1));
+                        let l2 = getGeocentricApparentLongitude(p, tIter.AddDays(0.1));
+                        let isRet = (pyMod(l2 - l1 + 180, 360) - 180) < 0;
+                        if(isRet !== state.isRetrograde) nextRetroChange = { isRet: isRet, date: tIter.date };
+                    }
+
+                    if(!nextCombustChange) {
+                        let isCom = getAngularSeparation('Sun', p, tIter) < COMBUST_THRESHOLDS[p];
+                        if(isCom !== state.isCombust) nextCombustChange = { isCom: isCom, date: tIter.date };
+                    }
+
+                    if(nextRetroChange && nextCombustChange) break;
+                }
+
+                let out = '<div class="space-y-1">';
+                if(nextRetroChange) out += `<div><strong>Motion:</strong> ${nextRetroChange.isRet ? 'Becomes Retrograde' : 'Becomes Direct'} around <span class="text-indigo-700">${nextRetroChange.date.toLocaleDateString()}</span></div>`;
+                else out += `<div><strong>Motion:</strong> No change in next year.</div>`;
+
+                if(nextCombustChange) out += `<div><strong>Status:</strong> ${nextCombustChange.isCom ? 'Enters Combustion (Asth)' : 'Exits Combustion (Uday)'} around <span class="text-indigo-700">${nextCombustChange.date.toLocaleDateString()}</span></div>`;
+                else out += `<div><strong>Status:</strong> No change in next year.</div>`;
+                out += '</div>';
+
+                content.innerHTML = out;
+                btn.innerText = 'Close';
+            }, 50);
         }
 
-        function createRow(label, value) {
-            return `<div class="result-row"><span class="result-label">${label}</span><span class="result-value">${value}</span></div>`;
-        }
-        
-        function populateGeneralInfo(D, weekday, lat, lon) {
-            generalInfoCard.innerHTML = `
-                <h2 class="card-title">General Information</h2>
-                ${createRow("Ahargana", D.toLocaleString())}
-                ${createRow("Weekday", weekday)}
-                ${createRow("Latitude", `${lat.toFixed(4)}°`)}
-                ${createRow("Longitude", `${lon.toFixed(4)}°`)}
-            `;
-        }
+        function renderEclipses() {
+            let content = '<h2 class="card-title">Eclipse Predictions</h2>';
+            content += '<p class="text-sm font-semibold text-gray-600 mb-2 mt-2">Solar Eclipses:</p><ul class="space-y-1">';
+            cache.solarEclipses.slice(0, currentLimits.defaultSolar).forEach((e, i) => {
+                let badge = `<span class="text-[10px] ml-2 px-2 py-0.5 rounded-full ${e.isVisible ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-50 text-red-600 border border-red-100'}">${e.isVisible ? 'Visible' : 'Not Visible'}</span>`;
+                content += `<li class="list-item" onclick="showEclipseModal(${i}, 'solar')">
+                    <div class="flex items-center justify-between">
+                        <span>${e.peak.date.toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'})} - <span class="text-blue-600">${e.kind}</span></span>
+                        ${badge}
+                    </div></li>`;
+            });
+            content += '</ul>' + getPaginationButtons('defaultSolar', cache.solarEclipses.length);
 
-        function populateSunCard(date, D, lat, lon, remainder_days) {
-            const sun_pos = getTrueLongitude("sun", sun, remainder_days, D, lon);
-            const ujjain_mean_pos = getMeanLongitude("sun", sun, D);
-            const sun_mean_pos = applyDeshantaraToLongitude(ujjain_mean_pos, getMeanDailyMotion("sun", sun), lon);
-            const { ayanamsha, cycle_pos } = getAyanamsha(D);
-            const sun_apogee = getApogeeLongitude("sun", sun, D, lon);
-            
-            const tropical_sun = (cycle_pos > 90 && cycle_pos < 270) ? 
-                pyMod(sun_pos + ayanamsha, 360) : 
-                pyMod(sun_pos - ayanamsha + 360, 360);
+            content += '<p class="text-sm font-semibold text-gray-600 mb-2 mt-4">Lunar Eclipses:</p><ul class="space-y-1">';
+            cache.lunarEclipses.slice(0, currentLimits.defaultLunar).forEach((e, i) => {
+                let badge = `<span class="text-[10px] ml-2 px-2 py-0.5 rounded-full ${e.isVisible ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-red-50 text-red-600 border border-red-100'}">${e.isVisible ? 'Visible' : 'Not Visible'}</span>`;
+                content += `<li class="list-item" onclick="showEclipseModal(${i}, 'lunar')">
+                    <div class="flex items-center justify-between">
+                        <span>${e.peak.date.toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'})} - <span class="text-blue-600">${e.kind}</span></span>
+                        ${badge}
+                    </div></li>`;
+            });
+            content += '</ul>' + getPaginationButtons('defaultLunar', cache.lunarEclipses.length);
 
-            const sun_pos_info = getZodiacSignInfo(sun_pos);
-            const sun_mean_pos_info = getZodiacSignInfo(sun_mean_pos);
-            const sun_apogee_info = getZodiacSignInfo(sun_apogee);
-            const tropical_sun_info = getZodiacSignInfo(tropical_sun);
-
-            const { rise: sunRise, set: sunSet } = calculateBodyRiseSet("sun", sun, lat, lon, date, D, remainder_days);
-            const { ascendant } = calculateAscendant(lat, lon, date, D, remainder_days);
-            const ascendant_info = getZodiacSignInfo(ascendant);
-            
-            sunCard.innerHTML = `
-                <h2 class="card-title">Sun Details</h2>
-                ${createRow("True Sidereal Position", `${sun_pos.toFixed(2)}° (${sun_pos_info.name})`)}
-                ${createRow("Mean Position", `${sun_mean_pos.toFixed(2)}° (${sun_mean_pos_info.name})`)}
-                ${createRow("Apogee", `${sun_apogee.toFixed(2)}° (${sun_apogee_info.name})`)}
-                ${createRow("Ayanamsha", `${ayanamsha.toFixed(4)}°`)}
-                ${createRow("True Tropical Position", `${tropical_sun.toFixed(2)}° (${tropical_sun_info.name})`)}
-                <h3 class="font-semibold text-gray-700 mt-4 mb-2">Local Times</h3>
-                ${createRow("Sunrise", sunRise.toLocaleTimeString('en-IN', {timeZone: 'Asia/Kolkata'}))}
-                ${createRow("Sunset", sunSet.toLocaleTimeString('en-IN', {timeZone: 'Asia/Kolkata'}))}
-                ${createRow("Ascendant (Lagna)", `${ascendant.toFixed(2)}° (${ascendant_info.name})`)}
-            `;
+            document.getElementById('eclipse-card').innerHTML = content;
         }
 
-        function populateMeanPositions(D, user_longitude) {
-            let content = '<h2 class="card-title">Mean Positions (Corrected for Longitude)</h2>';
-            content += `<div class="overflow-x-auto"><table class="w-full text-left">
-                <thead><tr class="border-b border-gray-200 text-gray-600">
-                    <th class="py-2 px-1">Planet</th><th class="py-2 px-1">Degree</th><th class="py-2 px-1">Sign</th>
-                </tr></thead><tbody>`;
-            
-            const planetsToDisplay = { "Moon": moon, "Mars": mars, "Mercury": mercury, "Jupiter": jupiter, "Venus": venus, "Saturn": saturn };
-            for (const [name, rev] of Object.entries(planetsToDisplay)) {
-                const ujjain_pos = getMeanLongitude(name.toLowerCase(), rev, D);
-                const daily_motion = getMeanDailyMotion(name.toLowerCase(), rev);
-                const pos = applyDeshantaraToLongitude(ujjain_pos, daily_motion, user_longitude);
-                const sign = getZodiacSignInfo(pos).name;
-                content += `<tr class="border-b border-gray-100 clickable-row" data-planet="${name.toLowerCase()}" data-mean-pos="${pos}">
-                    <td class="py-2 px-1 font-medium">${name}</td>
-                    <td class="py-2 px-1">${pos.toFixed(2)}°</td>
-                    <td class="py-2 px-1">${sign}</td>
-                </tr>`;
+        function renderEvents() {
+            let content = '<h2 class="card-title">Astronomical Events</h2><ul class="space-y-1">';
+            cache.events.slice(0, currentLimits.defaultEvents).forEach((e, i) => {
+                let badge = '';
+                if(e.type === 'Occultation') badge = `<span class="bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold ml-2">OCCULTATION</span>`;
+                content += `<li class="list-item" onclick="handleEventClick(${i})">
+                    <div class="flex justify-between items-center">
+                        <span class="font-medium text-gray-800">${e.name} ${badge}</span>
+                        <span class="text-sm text-gray-500">${e.date.toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'})}</span>
+                    </div>
+                </li>`;
+            });
+            content += '</ul>' + getPaginationButtons('defaultEvents', cache.events.length);
+            document.getElementById('events-card').innerHTML = content;
+        }
+
+        function getPaginationButtons(limitKey, maxItems) {
+            let html = '<div class="flex gap-4 mt-3 mb-2 px-2">';
+            if (currentLimits[limitKey] < maxItems) html += `<button onclick="changeLimit('${limitKey}', 4)" class="text-sm text-blue-600 hover:text-blue-800 font-semibold transition-colors">+ Show More</button>`;
+            if (currentLimits[limitKey] > LIMITS[limitKey]) html += `<button onclick="resetLimit('${limitKey}')" class="text-sm text-gray-500 hover:text-gray-700 font-semibold transition-colors">- Show Less</button>`;
+            return html + '</div>';
+        }
+
+        window.changeLimit = function(key, amount) { currentLimits[key] += amount; refreshUIComponents(); };
+        window.resetLimit = function(key) { currentLimits[key] = LIMITS[key]; refreshUIComponents(); };
+
+        window.changeConjunctionLimit = function(amount) { currentConjunctionLimit += amount; renderConjunctions(); };
+        window.resetConjunctionLimit = function() { currentConjunctionLimit = 5; renderConjunctions(); };
+
+        function refreshUIComponents() { renderFestivals(); renderPanchak(); renderAstrologyBase(); renderEclipses(); renderEvents(); }
+
+        window.handleEventClick = function(idx) {
+            let e = cache.events[idx];
+            if (e.type === 'Eclipse') {
+                let isSolar = e.name.includes('Solar');
+                let arr = isSolar ? cache.solarEclipses : cache.lunarEclipses;
+                let eIdx = arr.findIndex(ex => ex.peak.date.getTime() === e.date.getTime());
+                if(eIdx !== -1) showEclipseModal(eIdx, isSolar ? 'solar' : 'lunar');
+            } else {
+                showEventModal(e);
             }
-            content += `</tbody></table></div>`;
-            meanPositionsCard.innerHTML = content;
+        }
+
+        window.showEventModal = function(e) {
+            const tf = { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' };
+            document.getElementById('event-modal-title').textContent = e.name;
+            document.getElementById('event-modal-subtitle').textContent = e.type + " Event";
+            document.getElementById('event-modal-time').textContent = e.date.toLocaleDateString(undefined, {weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'}) + ' at ' + e.date.toLocaleTimeString(undefined, tf);
+            
+            let illustration = ''; let extraInfo = ''; let visibilityHtml = '';
+            let astroTime = new Astro.AstroTime(e.date);
+
+            if (e.type === 'Phase') {
+                let sunTrop = getGeocentricApparentLongitude('Sun', astroTime);
+                let moonTrop = getGeocentricApparentLongitude('Moon', astroTime);
+                let phaseAngle = pyMod(moonTrop - sunTrop, 360);
+                illustration = getMoonSVG(phaseAngle);
+                let alt = Astro.Horizon(astroTime, observer, Astro.Equator('Moon', astroTime, observer, true, true).ra, Astro.Equator('Moon', astroTime, observer, true, true).dec, 'normal').altitude;
+                visibilityHtml = alt > 0 ? `<span class="text-green-600 bg-green-50 px-3 py-1 rounded-full text-sm font-semibold">Moon is above horizon (${alt.toFixed(1)}°)</span>` : `<span class="text-red-600 bg-red-50 px-3 py-1 rounded-full text-sm font-semibold">Moon is below horizon</span>`;
+                extraInfo = `Exact phase angle: ${phaseAngle.toFixed(2)}°`;
+            } else if (e.type === 'Season') {
+                illustration = `<svg viewBox="0 0 100 100" class="w-32 h-32 mx-auto"><circle cx="50" cy="50" r="40" fill="#fbbf24" opacity="0.2"/><circle cx="50" cy="50" r="20" fill="#3b82f6" /><line x1="20" y1="20" x2="80" y2="80" stroke="#1e293b" stroke-width="2" stroke-dasharray="4" /></svg>`;
+                extraInfo = `Earth's axial tilt aligns for the ${e.name}.`;
+            } else if (e.type === 'Conjunction' || e.type === 'Occultation') {
+                let sep = e.sep || 0;
+                let offset = Math.min(sep * 40, 40); 
+                let r1 = e.b1 === 'Sun' ? 30 : (e.b1 === 'Moon' ? 25 : 15);
+                let r2 = e.b2 === 'Sun' ? 30 : (e.b2 === 'Moon' ? 25 : 10);
+                illustration = `<svg viewBox="0 0 100 100" class="w-32 h-32 mx-auto rounded-lg" style="background: #0f172a"><circle cx="50" cy="50" r="${r1}" fill="${getPlanetColor(e.b1)}" /><circle cx="${50 + offset}" cy="${50 - offset/2}" r="${r2}" fill="${getPlanetColor(e.b2)}" opacity="0.9" /></svg>`;
+                let eq = Astro.Equator(e.b1, astroTime, observer, true, true);
+                let alt = Astro.Horizon(astroTime, observer, eq.ra, eq.dec, 'normal').altitude;
+                let sunEq = Astro.Equator('Sun', astroTime, observer, true, true);
+                let sunAlt = Astro.Horizon(astroTime, observer, sunEq.ra, sunEq.dec, 'normal').altitude;
+                if (alt > 0) {
+                    visibilityHtml = `<span class="text-green-600 bg-green-50 px-3 py-1 rounded-full text-sm font-semibold">Above Horizon (Alt: ${alt.toFixed(1)}°)</span>`;
+                    if (sunAlt > -6 && e.b1 !== 'Sun' && e.b2 !== 'Sun') visibilityHtml += `<p class="text-orange-600 text-xs mt-2 font-medium">⚠️ Occurs during daylight/twilight (Hard to see visually)</p>`;
+                } else visibilityHtml = `<span class="text-red-600 bg-red-50 px-3 py-1 rounded-full text-sm font-semibold">Below Horizon (Not visible locally)</span>`;
+                extraInfo = `<strong>Angular Separation:</strong> ${sep.toFixed(2)}°<br/>Apparent geocentric longitudes match exactly at this moment.`;
+            }
+
+            document.getElementById('event-modal-illustration').innerHTML = illustration;
+            document.getElementById('event-modal-visibility').innerHTML = visibilityHtml;
+            document.getElementById('event-modal-extra').innerHTML = extraInfo;
+            document.getElementById('event-modal').classList.remove('hidden');
+        }
+
+        window.showConjunctionDetails = function(b1, b2, timeStr) {
+            let t = new Date(timeStr);
+            let astroTime = new Astro.AstroTime(t);
+            let sep = getAngularSeparation(b1, b2, astroTime);
+            let isOccultation = false;
+            if (b1 === 'Moon' || b2 === 'Moon' || b1 === 'Sun' || b2 === 'Sun') { if (sep <= 0.28) isOccultation = true; } 
+            else if (sep <= 0.05) isOccultation = true;
+            let name = isOccultation ? `${b1} Occults ${b2}` : `${b1} & ${b2} Conjunction`;
+            showEventModal({ name: name, date: t, type: isOccultation ? 'Occultation' : 'Conjunction', b1: b1, b2: b2, sep: sep });
+        }
+
+        window.showEclipseModal = function(idx, type) {
+            let e = (type === 'solar') ? cache.solarEclipses[idx] : cache.lunarEclipses[idx];
+            const tf = { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' };
+            
+            document.getElementById('eclipse-modal-title').textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} Eclipse Details`;
+            document.getElementById('modal-visibility').innerHTML = e.isVisible ? `<span class="text-green-600 bg-green-50 px-3 py-1 rounded-full">Visible at your location</span>` : `<span class="text-red-600 bg-red-50 px-3 py-1 rounded-full">Not visible at your location</span>`;
+            document.getElementById('modal-date').textContent = e.peak.date.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            document.getElementById('modal-position').textContent = e.kind;
+            
+            let startTimeStr = "N/A", peakTimeStr = "N/A", endTimeStr = "N/A";
+            let obscuration = 0;
+
+            if (type === 'solar') {
+                if (e.localDetails && e.isVisible) {
+                    let loc = e.localDetails;
+                    startTimeStr = loc.partial_begin ? loc.partial_begin.time.date.toLocaleTimeString(undefined, tf) : 'N/A';
+                    peakTimeStr = loc.peak ? loc.peak.time.date.toLocaleTimeString(undefined, tf) : e.peak.date.toLocaleTimeString(undefined, tf);
+                    endTimeStr = loc.partial_end ? loc.partial_end.time.date.toLocaleTimeString(undefined, tf) : 'N/A';
+                    if (loc.total_begin || loc.annular_begin) obscuration = 1.0;
+                    else if (loc.partial_begin) obscuration = 0.6; 
+                } else {
+                    peakTimeStr = e.peak.date.toLocaleTimeString(undefined, tf);
+                    startTimeStr = "Not visible";
+                    endTimeStr = "Not visible";
+                }
+            } else {
+                let dur = (e.sd_penum || e.sd_partial || e.sd_total || 90);
+                let start = new Date(e.peak.date.getTime() - dur * 60000);
+                let end = new Date(e.peak.date.getTime() + dur * 60000);
+                startTimeStr = start.toLocaleTimeString(undefined, tf);
+                peakTimeStr = e.peak.date.toLocaleTimeString(undefined, tf);
+                endTimeStr = end.toLocaleTimeString(undefined, tf);
+                if (e.isVisible) {
+                    if (e.kind === 'total') obscuration = 1.0;
+                    else if (e.kind === 'partial') obscuration = 0.5;
+                    else obscuration = 0.15;
+                }
+            }
+
+            document.getElementById('modal-start-time').textContent = startTimeStr;
+            document.getElementById('modal-max-time').textContent = peakTimeStr;
+            document.getElementById('modal-end-time').textContent = endTimeStr;
+
+            const maxDist = 80; 
+            const dist = e.isVisible ? (maxDist * (1 - obscuration)) : maxDist;
+            let svgHtml = '';
+            if (type === 'solar') {
+                svgHtml = `<svg viewBox="0 0 100 100" class="w-32 h-32 mx-auto drop-shadow-sm"><circle cx="50" cy="50" r="40" fill="#FDE047" /><circle cx="${50 + dist}" cy="50" r="39.5" fill="#1f2937" /></svg>`;
+            } else {
+                let moonFill = (e.kind === 'total') ? '#ef4444' : '#e2e8f0'; 
+                let shadowFill = (e.kind === 'total') ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.65)';
+                svgHtml = `<svg viewBox="0 0 100 100" class="w-32 h-32 mx-auto rounded-full overflow-hidden" style="background: #0f172a"><circle cx="50" cy="50" r="25" fill="${moonFill}" /><circle cx="${50 - dist}" cy="50" r="45" fill="${shadowFill}" /></svg>`;
+            }
+
+            if (!e.isVisible) svgHtml += `<p class="text-xs text-gray-400 mt-2 italic">Illustration shows no overlap (not visible)</p>`;
+            else svgHtml += `<p class="text-xs text-gray-500 mt-2 font-medium">Estimated Peak Obscuration: ${Math.round(obscuration * 100)}%</p>`;
+            document.getElementById('modal-illustration').innerHTML = svgHtml;
+            document.getElementById('eclipse-modal').classList.remove('hidden');
+        };
+
+        window.runAllCalculations = function() {
+            let currentDateTime = new Date(dateTimeInput.value);
+            if (isNaN(currentDateTime.getTime())) currentDateTime = new Date();
+
+            let lat = parseFloat(latitudeInput.value);
+            let lon = parseFloat(longitudeInput.value);
+            if (document.getElementById('latitudeDirection').value === 'S') lat = -Math.abs(lat);
+            if (document.getElementById('longitudeDirection').value === 'W') lon = -Math.abs(lon);
+
+            observer = new Astro.Observer(lat, lon, 0); 
+            const time = new Astro.AstroTime(currentDateTime);
+            const ayanamsha = getAyanamsha(currentDateTime);
+            
+            const sunTropical = getGeocentricApparentLongitude('Sun', time);
+            const moonTropical = getGeocentricApparentLongitude('Moon', time);
+            const sunSidereal = pyMod(sunTropical - ayanamsha, 360);
+            const moonSidereal = pyMod(moonTropical - ayanamsha, 360);
+
+            const currentCalcKey = `${currentDateTime.toDateString()}_${lat}_${lon}`;
+            if (lastHeavyCalcKey !== currentCalcKey) {
+                currentLimits = { ...LIMITS };
+                calculateHeavyData(time, currentDateTime);
+                lastHeavyCalcKey = currentCalcKey;
+            }
+
+            populateSunCard(time, currentDateTime, sunTropical, sunSidereal, ayanamsha, lat, lon);
+            populateTithiCard(time, currentDateTime, sunTropical, moonTropical, moonSidereal);
+            populateMeanPositions(time, ayanamsha);
+            
+            if (!document.getElementById('vedic-modal').classList.contains('hidden')) {
+                 let chartD = new Date(chartDatetimeInput.value);
+                 if(!isNaN(chartD)) {
+                     let chartT = new Astro.AstroTime(chartD);
+                     let chartAyan = getAyanamsha(chartD);
+                     populateHoroscope(chartT, chartD, lat, lon, chartAyan);
+                 }
+            }
+            
+            refreshUIComponents();
+        }
+
+        function populateHoroscope(time, date, lat, lon, ayanamsha) {
+            let asc = getAscendant(time, lat, lon, ayanamsha);
+            
+            const j2000 = new Date('2000-01-01T12:00:00Z');
+            const t = (date.getTime() - j2000.getTime()) / (1000 * 60 * 60 * 24 * 365.25);
+            let nodeTropical = pyMod(125.04452 - 19.340929 * t, 360);
+            let rahuSidereal = pyMod(nodeTropical - ayanamsha, 360);
+            let ketuSidereal = pyMod(rahuSidereal + 180, 360);
+
+            cache.horoscope = {
+                ascendant: asc,
+                planets: [
+                    {name: 'Su', lon: getSiderealLongitude('Sun', time), color: 'text-gray-800'},
+                    {name: 'Mo', lon: getSiderealLongitude('Moon', time), color: 'text-gray-800'},
+                    {name: 'Ma', lon: getSiderealLongitude('Mars', time), color: 'text-gray-800'},
+                    {name: 'Me', lon: getSiderealLongitude('Mercury', time), color: 'text-gray-800'},
+                    {name: 'Ju', lon: getSiderealLongitude('Jupiter', time), color: 'text-gray-800'},
+                    {name: 'Ve', lon: getSiderealLongitude('Venus', time), color: 'text-gray-800'},
+                    {name: 'Sa', lon: getSiderealLongitude('Saturn', time), color: 'text-gray-800'},
+                    {name: 'Ra', lon: rahuSidereal, color: 'text-gray-800'},
+                    {name: 'Ke', lon: ketuSidereal, color: 'text-gray-800'}
+                ]
+            };
+
+            renderHoroscopeChart();
+        }
+
+        function renderHoroscopeChart() {
+            if (!cache.horoscope.planets || !cache.horoscope.planets.length) return;
+
+            const style = document.getElementById('chart-style').value;
+            const base = document.getElementById('chart-base').value;
+            const container = document.getElementById('horoscope-container');
+            
+            if(!container) return;
+
+            const ascSign = Math.floor(pyMod(cache.horoscope.ascendant, 360) / 30);
+            const moonLon = cache.horoscope.planets.find(p => p.name === 'Mo').lon;
+            const moonSign = Math.floor(pyMod(moonLon, 360) / 30);
+
+            const baseSign = base === 'lagna' ? ascSign : moonSign;
+
+            let signContents = {};
+            for(let i=0; i<12; i++) signContents[i] = [];
+
+            signContents[ascSign].push(`<span class="font-bold text-red-600">As</span>`);
+
+            cache.horoscope.planets.forEach(p => {
+                let sign = Math.floor(pyMod(p.lon, 360) / 30);
+                signContents[sign].push(`<span class="font-bold ${p.color}">${p.name}</span>`);
+            });
+
+            if (style === 'north') {
+                let houseContents = {};
+                let houseSigns = {};
+                for(let h=1; h<=12; h++) {
+                    let s = (baseSign + h - 1) % 12;
+                    houseContents[h] = signContents[s].join(', ');
+                    houseSigns[h] = s + 1; 
+                }
+
+                let svg = `<svg viewBox="0 0 400 400" class="w-full max-w-[350px] aspect-square text-indigo-400 mx-auto" stroke="currentColor">
+                    <rect x="2" y="2" width="396" height="396" stroke-width="2" fill="white"/>
+                    <polygon points="200,2 299,101 200,200 101,101" fill="#eef2ff" stroke="none" />
+                    <line x1="2" y1="2" x2="398" y2="398" stroke-width="2"/>
+                    <line x1="398" y1="2" x2="2" y2="398" stroke-width="2"/>
+                    <polygon points="200,2 398,200 200,398 2,200" stroke-width="2" fill="transparent"/>`;
+                
+                const signNames = ["Ar","Ta","Ge","Ca","Le","Vi","Li","Sc","Sa","Cp","Aq","Pi"];
+
+                const addFO = (h, x, y, w, h_box) => {
+                    let isBase = h === 1; 
+                    let fontClass = isBase ? 'font-extrabold text-indigo-900' : 'text-gray-800';
+                    let signAbbr = signNames[houseSigns[h] - 1];
+                    
+                    return `<foreignObject x="${x}" y="${y}" width="${w}" height="${h_box}">
+                        <div xmlns="http://www.w3.org/1999/xhtml" class="w-full h-full flex flex-col items-center justify-center p-1">
+                            <div class="text-[11px] text-indigo-500 font-bold leading-none mb-1 flex items-center space-x-1">
+                                <span>${houseSigns[h]}</span>
+                                <span class="text-[9px] font-normal text-indigo-400">(${signAbbr})</span>
+                            </div>
+                            <div class="text-[11px] leading-tight text-center ${fontClass}">${houseContents[h]}</div>
+                        </div>
+                    </foreignObject>`;
+                };
+
+                svg += addFO(1, 125, 25, 150, 150);
+                svg += addFO(2, 25, 5, 150, 95);   
+                svg += addFO(3, 5, 25, 95, 150);   
+                svg += addFO(4, 25, 125, 150, 150);
+                svg += addFO(5, 5, 225, 95, 150);  
+                svg += addFO(6, 25, 300, 150, 95); 
+                svg += addFO(7, 125, 225, 150, 150);
+                svg += addFO(8, 225, 300, 150, 95); 
+                svg += addFO(9, 300, 225, 95, 150); 
+                svg += addFO(10, 225, 125, 150, 150);
+                svg += addFO(11, 300, 25, 95, 150); 
+                svg += addFO(12, 225, 5, 150, 95);  
+                
+                svg += `</svg>`;
+
+                container.innerHTML = svg;
+
+            } else {
+                const signToGrid = {
+                    11: 0, 0: 1, 1: 2, 2: 3,
+                    10: 4, 3: 7,
+                    9: 8,  4: 11,
+                    8: 12, 7: 13, 6: 14, 5: 15
+                };
+
+                let html = `<div class="grid grid-cols-4 grid-rows-4 gap-[1px] bg-indigo-400 border-2 border-indigo-400 p-[1px] w-full max-w-[350px] aspect-square rounded-sm mx-auto">`;
+                for(let i=0; i<16; i++) {
+                    if ([5,6,9,10].includes(i)) {
+                        if (i === 5) html += `<div class="col-span-2 row-span-2 bg-indigo-50 flex flex-col items-center justify-center text-indigo-200 font-bold text-2xl tracking-widest pointer-events-none uppercase">${base === 'lagna' ? 'Lagna' : 'Rasi'}<br/><span class="text-sm tracking-normal">Chart</span></div>`;
+                        continue;
+                    }
+                    
+                    let signIdx = parseInt(Object.keys(signToGrid).find(k => signToGrid[k] == i));
+                    let signName = ["Ar","Ta","Ge","Ca","Le","Vi","Li","Sc","Sa","Cp","Aq","Pi"][signIdx];
+                    let isBase = signIdx === baseSign;
+                    let bgClass = isBase ? 'bg-indigo-100' : 'bg-white';
+
+                    html += `<div class="chart-cell ${bgClass}">
+                        <span class="absolute top-0.5 left-1 text-[9px] text-gray-400 font-medium">${signName}</span>
+                        <div class="text-center w-full px-1 text-xs leading-tight">${signContents[signIdx].join(', ')}</div>
+                    </div>`;
+                }
+                html += `</div>`;
+                container.innerHTML = html;
+            }
+        }
+
+        function populateSunCard(time, date, sunTrop, sunSid, ayan, lat, lon) {
+            let ascendant = getAscendant(time, lat, lon, ayan);
+            let sunrise = Astro.SearchRiseSet('Sun', observer, +1, time, 1);
+            let sunset = Astro.SearchRiseSet('Sun', observer, -1, time, 1);
+            document.getElementById('sun-card').innerHTML = `
+                <h2 class="card-title">Sun Details</h2>
+                ${createRow("True Sidereal", `${sunSid.toFixed(2)}° (${getZodiacSignInfo(sunSid).name})`)}
+                ${createRow("True Tropical", `${sunTrop.toFixed(2)}° (${getZodiacSignInfo(sunTrop).name})`)}
+                <h3 class="font-semibold text-gray-700 mt-4 mb-2">Local Times</h3>
+                ${createRow("Sunrise", sunrise ? sunrise.date.toLocaleTimeString() : 'N/A')}
+                ${createRow("Sunset", sunset ? sunset.date.toLocaleTimeString() : 'N/A')}
+            `;
+        }
+
+        function populateTithiCard(time, date, sunTrop, moonTrop, moonSid) {
+            const jd = time.ut + 2451545.0; 
+            const phaseAngle = pyMod(moonTrop - sunTrop, 360);
+            const lunarAge = (jd - LUNAR_EPOCH_JD) % SYNODIC_MONTH < 0 ? ((jd - LUNAR_EPOCH_JD) % SYNODIC_MONTH) + SYNODIC_MONTH : (jd - LUNAR_EPOCH_JD) % SYNODIC_MONTH;
+            const phaseIndex = Math.floor(((lunarAge + (SYNODIC_MONTH / 8) / 2) % SYNODIC_MONTH) / (SYNODIC_MONTH / 8));
+            const illumination = (1 - Math.cos(phaseAngle * Math.PI / 180)) / 2 * 100;
+            let cyclePosDist = (lunarAge / ANOMALISTIC_MONTH) % 1;
+            if (cyclePosDist < 0) cyclePosDist += 1;
+            const moonDist = AVERAGE_LUNAR_DISTANCE - LUNAR_DISTANCE_AMPLITUDE * Math.cos(2 * Math.PI * cyclePosDist);
+            
+            let tithiNumber = Math.floor(phaseAngle / 12) + 1;
+            let p1 = pyMod(getGeocentricApparentLongitude('Moon', time.AddDays(-0.1)) - getGeocentricApparentLongitude('Sun', time.AddDays(-0.1)), 360);
+            let p2 = pyMod(getGeocentricApparentLongitude('Moon', time.AddDays(0.1)) - getGeocentricApparentLongitude('Sun', time.AddDays(0.1)), 360);
+            if (p2 < p1) p2 += 360; 
+            let relativeSpeed = (p2 - p1) / 0.2;
+            let startTime = new Date(date.getTime() - (pyMod(phaseAngle - ((tithiNumber - 1) * 12), 360) / relativeSpeed) * MS_PER_DAY);
+            let endTime = new Date(date.getTime() + (pyMod((tithiNumber * 12) - phaseAngle, 360) / relativeSpeed) * MS_PER_DAY);
+
+            const TITHI_NAMES = ["Pratipada", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami", "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi"];
+            let tithiName = tithiNumber <= 15 ? TITHI_NAMES[tithiNumber - 1] : TITHI_NAMES[tithiNumber - 16];
+            if (tithiNumber === 15) tithiName = "Purnima";
+            if (tithiNumber === 30) tithiName = "Amavasya";
+
+            let moonrise = Astro.SearchRiseSet('Moon', observer, +1, time, 1);
+            let moonset = Astro.SearchRiseSet('Moon', observer, -1, time, 1);
+            const tfOpts = { hour: '2-digit', minute: '2-digit' };
+            let mrTime = moonrise ? moonrise.date.toLocaleTimeString(undefined, tfOpts) : 'N/A';
+            let msTime = moonset ? moonset.date.toLocaleTimeString(undefined, tfOpts) : 'N/A';
+
+            document.getElementById('tithi-card').innerHTML = `
+                <h2 class="card-title">Moon Phase & Tithi</h2>
+                <div class="mb-4 bg-blue-50 p-4 rounded-xl border border-blue-100 text-center">
+                    ${getMoonSVG(phaseAngle)}
+                    <p class="text-blue-800 font-bold text-lg leading-tight">${MOON_PHASE_NAMES[phaseIndex]}</p>
+                    <p class="text-blue-600 text-xs mt-1">Age: ${lunarAge.toFixed(2)} days | Illum: ${Math.round(illumination)}%</p>
+                </div>
+                ${createRow("Moon Sidereal", `${moonSid.toFixed(2)}° (${getZodiacSignInfo(moonSid).name}, ${getNakshatra(moonSid)})`)}
+                ${createRow("Moon Distance", `${Math.round(moonDist).toLocaleString()} km`)}
+                ${createRow("Current Tithi", `${tithiName} (${tithiNumber})`)}
+                ${createRow("Paksha", phaseAngle < 180 ? "Waxing (Shukla)" : "Waning (Krishna)")}
+                <div class="mt-4 pt-3 border-t border-gray-100">
+                    <h3 class="font-semibold text-gray-700 mb-2">Local Moon Timings</h3>
+                    ${createRow("Moonrise", mrTime)}
+                    ${createRow("Moonset", msTime)}
+                </div>
+                <div class="mt-4 pt-3 border-t border-gray-100">
+                    <h3 class="font-semibold text-gray-700 mb-2">Tithi Timings</h3>
+                    ${createRow("Starts", `${startTime.toLocaleDateString(undefined, {day:'2-digit', month:'short'})}, ${startTime.toLocaleTimeString(undefined, tfOpts)}`)}
+                    ${createRow("Ends", `${endTime.toLocaleDateString(undefined, {day:'2-digit', month:'short'})}, ${endTime.toLocaleTimeString(undefined, tfOpts)}`)}
+                </div>
+            `;
+        }
+
+        function populateMeanPositions(time, ayan) {
+            const bodies = ['Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn'];
+            let content = '<h2 class="card-title">True Geocentric Sidereal Positions</h2><div class="overflow-x-auto"><table class="w-full text-left"><thead><tr class="border-b text-gray-600"><th class="py-2 px-1">Planet</th><th class="py-2 px-1">Degree</th><th class="py-2 px-1">Sign</th></tr></thead><tbody>';
+            bodies.forEach(name => {
+                let pos = pyMod(getGeocentricApparentLongitude(name, time) - ayan, 360);
+                content += `<tr class="border-b border-gray-100 clickable-row" data-planet="${name}" data-pos="${pos}">
+                    <td class="py-2 px-1 font-medium text-blue-600 hover:text-blue-800">${name}</td>
+                    <td class="py-2 px-1">${pos.toFixed(2)}°</td>
+                    <td class="py-2 px-1">${getZodiacSignInfo(pos).name}</td>
+                </tr>`;
+            });
+            document.getElementById('mean-positions-card').innerHTML = content + `</tbody></table></div>`;
             
             document.querySelectorAll('#mean-positions-card .clickable-row').forEach(row => {
                 row.addEventListener('click', () => {
-                    const planetName = row.dataset.planet;
-                    const meanPosition = parseFloat(row.dataset.meanPos);
-                    showPlanetDetails(planetName, meanPosition);
+                    const pName = row.dataset.planet;
+                    const pos = parseFloat(row.dataset.pos);
+                    document.getElementById('planet-modal-title').textContent = `${pName} Information`;
+                    document.getElementById('planet-modal-sign').textContent = getZodiacSignInfo(pos).name;
+                    document.getElementById('planet-modal-nakshatra').textContent = getNakshatra(pos);
+                    
+                    let riseTime = 'N/A', setTime = 'N/A';
+                    try {
+                        let rise = Astro.SearchRiseSet(pName, observer, +1, time, 1);
+                        let set = Astro.SearchRiseSet(pName, observer, -1, time, 1);
+                        if(rise) riseTime = rise.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                        if(set) setTime = set.date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+                    } catch(e) { console.error(e); }
+
+                    document.getElementById('planet-modal-rise').textContent = riseTime;
+                    document.getElementById('planet-modal-set').textContent = setTime;
+                    
+                    const listEl = document.getElementById('planet-modal-conjunctions');
+                    listEl.innerHTML = '<li class="text-center text-blue-600 animate-pulse py-4">Calculating advanced conjunctions...</li>';
+                    document.getElementById('planet-modal').classList.remove('hidden');
+                    
+                    setTimeout(() => { computeConjunctions(pName, time); }, 50);
                 });
             });
         }
 
-        function populateApogeeNodes(D, user_longitude) {
-            let content = '<h2 class="card-title">Apogees & Nodes (Corrected for Longitude)</h2>';
-            const moonApogee = getApogeeLongitude("moon", apsis, D, user_longitude);
+        function computeConjunctions(targetPlanet, baseTime) {
+            currentPlanetContext = targetPlanet;
+            currentConjunctionLimit = 5;
+            const allBodies = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn'];
+            const targets = allBodies.filter(b => b !== targetPlanet);
+            let results = [];
             
-            const ujjain_rahu = getMeanLongitude("rahu", rahu, D);
-            const rahuPos = applyDeshantaraToLongitude(ujjain_rahu, getMeanDailyMotion("rahu", rahu), user_longitude);
-            const ketuPos = pyMod(rahuPos + 180, 360);
-
-            content += createRow("Moon Apogee", `${moonApogee.toFixed(2)}° (${getZodiacSignInfo(moonApogee).name})`);
-            content += createRow("Rahu (Node)", `${rahuPos.toFixed(2)}° (${getZodiacSignInfo(rahuPos).name})`);
-            content += createRow("Ketu (Node)", `${ketuPos.toFixed(2)}° (${getZodiacSignInfo(ketuPos).name})`);
-            apogeeNodesCard.innerHTML = content;
-        }
-
-        function populateTithiCard(date, D, remainder_days, user_longitude) {
-            const moonPhaseStatus = getMoonPhaseStatus(date, D, remainder_days, user_longitude);
-            const timeFormat = {timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' };
-            const dateFormat = {timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short' };
-            
-            tithiCard.innerHTML = `
-                <h2 class="card-title">Tithi & Moon Phase</h2>
-                ${createRow("True Position", `${moonPhaseStatus.moonTruePos.toFixed(2)}° (${moonPhaseStatus.moonPosInfo.name}, ${moonPhaseStatus.moonNakshatra})`)}
-                ${createRow("Current Tithi", `${moonPhaseStatus.tithiName} (${moonPhaseStatus.tithiNumber})`)}
-                ${createRow("Paksha", moonPhaseStatus.paksha)}
-                ${createRow("Starts", `${moonPhaseStatus.startTime.toLocaleDateString('en-IN', dateFormat)}, ${moonPhaseStatus.startTime.toLocaleTimeString('en-IN', timeFormat)}`)}
-                ${createRow("Ends", `${moonPhaseStatus.endTime.toLocaleDateString('en-IN', dateFormat)}, ${moonPhaseStatus.endTime.toLocaleTimeString('en-IN', timeFormat)}`)}
-            `;
-        }
-
-        function populateEclipses(date, D, lat, lon) {
-            let content = '<h2 class="card-title">Eclipse Predictions</h2>';
-            
-            const solarEclipses = predictEclipses(date, D, 'solar', lon);
-            const lunarEclipses = predictEclipses(date, D, 'lunar', lon);
-
-            content += '<p class="text-sm font-semibold text-gray-600 mb-2">Upcoming Solar Eclipses:</p>';
-            content += '<ul class="eclipse-list space-y-1">';
-            if (solarEclipses.length > 0) {
-                solarEclipses.forEach(e => {
-                    const { rise: sunRise, set: sunSet } = calculateBodyRiseSet("sun", sun, lat, lon, e.date, D, 0);
-                    const isVisible = e.date > sunRise && e.date < sunSet;
-                    const visibilityTag = isVisible ? '<span class="text-green-600 font-semibold"> (Visible)</span>' : '<span class="text-red-600 font-semibold"> (Not Visible)</span>';
-                    content += `<li data-offset="${e.offset}" data-type="solar" data-visible="${isVisible}">${e.date.toLocaleDateString('en-IN', { month: 'long', day: 'numeric', year: 'numeric' })}${visibilityTag}</li>`;
-                });
-            } else {
-                content += `<li class="text-sm text-gray-500">None found in search period.</li>`;
-            }
-            content += '</ul>';
-
-            content += '<p class="text-sm font-semibold text-gray-600 mt-4 mb-2">Upcoming Lunar Eclipses:</p>';
-            content += '<ul class="eclipse-list space-y-1">';
-            if (lunarEclipses.length > 0) {
-                lunarEclipses.forEach(e => {
-                    const { rise: sunRise, set: sunSet } = calculateBodyRiseSet("sun", sun, lat, lon, e.date, D, 0);
-                    const isVisible = e.date < sunRise || e.date > sunSet;
-                    const visibilityTag = isVisible ? '<span class="text-green-600 font-semibold"> (Visible)</span>' : '<span class="text-red-600 font-semibold"> (Not Visible)</span>';
-                    content += `<li data-offset="${e.offset}" data-type="lunar" data-visible="${isVisible}">${e.date.toLocaleDateString('en-IN', { month: 'long', day: 'numeric', year: 'numeric' })}${visibilityTag}</li>`;
-                });
-            } else {
-                content += `<li class="text-sm text-gray-500">None found in search period.</li>`;
-            }
-            content += '</ul>';
-            
-            eclipseCard.innerHTML = content;
-            
-            document.querySelectorAll('#eclipse-card li').forEach(item => {
-                if (item.dataset.offset) {
-                    item.addEventListener('click', () => {
-                        const offset = parseFloat(item.dataset.offset);
-                        const type = item.dataset.type;
-                        const isVisible = item.dataset.visible === 'true';
-                        showEclipseDetails(offset, type, isVisible);
-                    });
+            targets.forEach(other => {
+                let t = baseTime;
+                for (let k = 0; k < 2; k++) {
+                    let conjTime = findNextConjunction(targetPlanet, other, t);
+                    if (conjTime) {
+                        let sep = getAngularSeparation(targetPlanet, other, conjTime);
+                        let isOccultation = false;
+                        if (targetPlanet === 'Moon' || other === 'Moon' || targetPlanet === 'Sun' || other === 'Sun') { if (sep <= 0.28) isOccultation = true; } 
+                        else { if (sep <= 0.05) isOccultation = true; }
+                        results.push({ body: other, date: conjTime.date, isOccultation: isOccultation });
+                        t = conjTime.AddDays(2);
+                    }
                 }
             });
+            
+            results.sort((a,b) => a.date - b.date);
+            currentConjunctions = results;
+            renderConjunctions();
         }
 
-
-        function showEclipseDetails(offset, type, isVisible) {
-            const currentDateTime = new Date(dateTimeInput.value);
-            const longitude = parseFloat(longitudeInput.value);
-            const timeDiff = currentDateTime.getTime() - startEpoch.getTime();
-            const count = Math.floor(timeDiff / MS_PER_DAY);
-            const D = 714404167521 + count;
-
-            const eclipseDate = new Date(currentDateTime);
-            eclipseDate.setHours(0,0,0,0);
-            eclipseDate.setTime(eclipseDate.getTime() + offset * MS_PER_DAY);
+        function renderConjunctions() {
+            const listEl = document.getElementById('planet-modal-conjunctions');
+            if (currentConjunctions.length === 0) { listEl.innerHTML = '<li>No upcoming conjunctions found.</li>'; return; }
             
-            const isSolar = type === 'solar';
-            const bodyName = isSolar ? "sun" : "moon";
-            const durationMinutes = isSolar ? 60 : 90;
-            const durationMillis = durationMinutes * 60 * 1000;
+            let html = currentConjunctions.slice(0, currentConjunctionLimit).map(r => {
+                let badge = r.isOccultation ? `<span class="bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold tracking-wider uppercase">Occultation</span>` : '';
+                return `
+                <li class="flex justify-between items-center p-2 border-b border-gray-100 hover:bg-gray-50 rounded cursor-pointer transition-colors" onclick="showConjunctionDetails('${currentPlanetContext}', '${r.body}', '${r.date.toISOString()}')">
+                    <div class="flex items-center space-x-2">
+                        <span class="font-medium text-blue-600 hover:underline">vs ${r.body}</span>
+                        ${badge}
+                    </div>
+                    <span class="text-gray-700 font-semibold">${r.date.toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'})}</span>
+                </li>
+            `}).join('');
 
-            const start = new Date(eclipseDate.getTime() - durationMillis);
-            const end = new Date(eclipseDate.getTime() + durationMillis);
-
-            const timeFormatOptions = { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' };
-
-            const pos = getTrueLongitude(bodyName, isSolar ? sun : moon, offset, D, longitude);
-            const sign = getZodiacSignInfo(pos).name;
-            const naksh = getNakshatra(pos);
-
-            modalTitle.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} Eclipse Details`;
-            modalDate.textContent = eclipseDate.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Kolkata' });
-            modalPosition.textContent = `${pos.toFixed(2)}° (${sign}, ${naksh})`;
-            modalStartTime.textContent = start.toLocaleTimeString('en-IN', timeFormatOptions);
-            modalMaxTime.textContent = eclipseDate.toLocaleTimeString('en-IN', timeFormatOptions);
-            modalEndTime.textContent = end.toLocaleTimeString('en-IN', timeFormatOptions);
-            
-            modalSubcontinents.textContent = getVisibleSubcontinents(eclipseDate, type);
-            modalVisibility.textContent = "Visibility needs local verification.";
-            modalVisibility.style.color = '#F59E0B'; // Amber
-
-            eclipseModal.classList.remove('hidden');
-        }
-
-        function showPlanetDetails(planetName, meanPosition) {
-            const nakshatra = getNakshatra(meanPosition);
-            planetModalTitle.textContent = `${planetName.charAt(0).toUpperCase() + planetName.slice(1)} Details`;
-            planetModalNakshatra.textContent = nakshatra;
-            
-            planetModalConjunctions.innerHTML = '<li>Conjunction calculations are complex and will be added soon!</li>';
-            planetModal.classList.remove('hidden');
-        }
-
-        function populatePanchak(date, D, user_longitude, remainder_days) {
-            let content = '<h2 class="card-title">Panchak Predictions</h2>';
-            const moon_pos_now = getTrueLongitude("moon", moon, remainder_days, D, user_longitude);
-
-            if (moon_pos_now >= 300) { // Currently in Panchak
-                const upcomingPeriods = predictPanchakPeriods(date, D, user_longitude);
-                const currentPanchakStart = findCurrentPanchakStart(date, D, user_longitude);
-
-                content += `<div class="result-row"><span class="result-label text-red-600 font-bold">Status</span><span class="result-value text-red-600 font-bold">Currently in Panchak</span></div>`;
-                if (currentPanchakStart) {
-                    content += createRow("Started On", `${currentPanchakStart.toLocaleString('en-IN', {timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'})}`);
-                }
-                if (upcomingPeriods.length > 0 && upcomingPeriods[0].type === 'Ends') {
-                    content += createRow("Ends On", `${upcomingPeriods[0].date.toLocaleString('en-IN', {timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'})}`);
-                }
-            } else { // Not in Panchak, show upcoming
-                const panchakPeriods = predictPanchakPeriods(date, D, user_longitude);
-                if (panchakPeriods.length > 0) {
-                    panchakPeriods.forEach(p => {
-                        content += createRow(p.type, `${p.date.toLocaleString('en-IN', {timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'})}`);
-                    });
-                } else {
-                    content += `<div class="text-sm text-gray-500 p-1">None found in search period.</div>`;
-                }
+            html += '<div class="flex gap-4 mt-3 mb-1 px-2 justify-center">';
+            if (currentConjunctionLimit < currentConjunctions.length) {
+                html += `<button onclick="changeConjunctionLimit(5)" class="text-sm text-blue-600 hover:text-blue-800 font-semibold transition-colors">+ Show More</button>`;
             }
-            panchakCard.innerHTML = content;
-        }
+            if (currentConjunctionLimit > 5) {
+                html += `<button onclick="resetConjunctionLimit()" class="text-sm text-gray-500 hover:text-gray-700 font-semibold transition-colors">- Show Less</button>`;
+            }
+            html += '</div>';
 
-
-        function populateSeasonal(date, D, remainder_days, user_longitude) {
-            let content = '<h2 class="card-title">Seasonal Predictions</h2>';
-            const nextEvent = predictEquinoxesAndSolstices(date, D, remainder_days, user_longitude);
-            content += createRow("Next Event", nextEvent.name);
-            content += createRow("Predicted Date", nextEvent.date.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Kolkata' }));
-            seasonalCard.innerHTML = content;
-        }
-
-        // =============================================================================
-        // === INITIALIZATION & EVENT LISTENERS
-        // =============================================================================
-        function setInitialDateTime() {
-            // Set the input to the current IST time on page load.
-            const now = new Date();
-            const istOffset = 5.5 * 60 * 60 * 1000;
-            const istNow = new Date(now.getTime() + istOffset);
-            const year = istNow.getUTCFullYear();
-            const month = (istNow.getUTCMonth() + 1).toString().padStart(2, '0');
-            const day = istNow.getUTCDate().toString().padStart(2, '0');
-            const hours = istNow.getUTCHours().toString().padStart(2, '0');
-            const minutes = istNow.getUTCMinutes().toString().padStart(2, '0');
-            dateTimeInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+            listEl.innerHTML = html;
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            setInitialDateTime();
-            runAllCalculations();
+            const now = new Date();
+            const offset = now.getTimezoneOffset() * 60000;
+            dateTimeInput.value = (new Date(now - offset)).toISOString().slice(0, 16);
+            runAllCalculations(); 
 
-            // Real-time checkbox listener
             realtimeCheckbox.addEventListener('change', () => {
                 if (realtimeCheckbox.checked) {
-                    // Start real-time updates
-                    dateTimeInput.disabled = true;
-                    calculateBtn.disabled = true;
-                    runAllCalculations(); // Initial run
+                    dateTimeInput.disabled = true; calculateBtn.disabled = true;
+                    realtimeInterval = setInterval(() => {
+                        const n = new Date();
+                        dateTimeInput.value = (new Date(n - n.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+                        runAllCalculations();
+                    }, 1000);
+                } else {
+                    clearInterval(realtimeInterval);
+                    dateTimeInput.disabled = false; calculateBtn.disabled = false;
+                }
+            });
+            calculateBtn.addEventListener('click', runAllCalculations);
+        });
+    </script>
+
+
+    <!-- ========================================== -->
+    <!-- SURYA SIDDHANTA JAVASCRIPT (ISOLATED) -->
+    <!-- ========================================== -->
+    <script>
+        (function() {
+            // === SURYA SIDDHANTA CONSTANTS ===
+            const sun = 4320000;
+            const moon = 57753336;
+            const rahu = -232238;
+            const saturn = 146604;
+            const mars = 2296832;
+            const jupiter = 364220;
+            const venus = 7022376;
+            const mercury = 17937060;
+            const apsis = 488203;
+            const ketu = -232238;
+            const ist_meridian = 82.5;
+            const UJJAIN_LONGITUDE = 75.78; 
+            const startEpoch = new Date('2021-05-25T00:00:00.000+05:30');
+            const MS_PER_DAY = 1000 * 60 * 60 * 24;
+
+            const { sin, cos, tan, PI, asin, abs, acos } = Math;
+            const radians = (deg) => deg * PI / 180;
+            const degrees = (rad) => rad * 180 / PI;
+            
+            let realtimeInterval = null;
+
+            // === DOM ELEMENTS ===
+            const dateTimeInput = document.getElementById('ss-datetime');
+            const latitudeInput = document.getElementById('ss-latitude');
+            const latitudeDirectionInput = document.getElementById('ss-latitudeDirection');
+            const longitudeInput = document.getElementById('ss-longitude');
+            const longitudeDirectionInput = document.getElementById('ss-longitudeDirection');
+            const calculateBtn = document.getElementById('ss-calculate-btn');
+            const realtimeCheckbox = document.getElementById('ss-realtime-checkbox');
+
+            const generalInfoCard = document.getElementById('ss-general-info-card');
+            const sunCard = document.getElementById('ss-sun-card');
+            const meanPositionsCard = document.getElementById('ss-mean-positions-card');
+            const apogeeNodesCard = document.getElementById('ss-apogee-nodes-card');
+            const tithiCard = document.getElementById('ss-tithi-card');
+            const eclipseCard = document.getElementById('ss-eclipse-card');
+            const panchakCard = document.getElementById('ss-panchak-card');
+            const seasonalCard = document.getElementById('ss-seasonal-card');
+
+            const eclipseModal = document.getElementById('ss-eclipse-modal');
+            const eclipseModalCloseBtn = document.getElementById('ss-eclipse-modal-close-btn');
+            const modalTitle = document.getElementById('ss-eclipse-modal-title');
+            const modalVisibility = document.getElementById('ss-modal-visibility');
+            const modalDate = document.getElementById('ss-modal-date');
+            const modalPosition = document.getElementById('ss-modal-position');
+            const modalStartTime = document.getElementById('ss-modal-start-time');
+            const modalMaxTime = document.getElementById('ss-modal-max-time');
+            const modalEndTime = document.getElementById('ss-modal-end-time');
+            const modalSubcontinents = document.getElementById('ss-modal-subcontinents');
+
+            const planetModal = document.getElementById('ss-planet-modal');
+            const planetModalCloseBtn = document.getElementById('ss-planet-modal-close-btn');
+            const planetModalTitle = document.getElementById('ss-planet-modal-title');
+            const planetModalNakshatra = document.getElementById('ss-planet-modal-nakshatra');
+            const planetModalConjunctions = document.getElementById('ss-planet-modal-conjunctions');
+
+            // === HELPER FUNCTIONS ===
+            function pyMod(n, m) { return ((n % m) + m) % m; }
+
+            function isInCircularRange(value, center, window) {
+                const lower_bound = pyMod(center - window, 360);
+                const upper_bound = pyMod(center + window, 360);
+                if (lower_bound < upper_bound) {
+                    return value >= lower_bound && value <= upper_bound;
+                } else {
+                    return value >= lower_bound || value <= upper_bound;
+                }
+            }
+
+            function getMeanLongitude(x, X, D) {
+                return pyMod(D * X, 1577917828) * 360 / 1577917828;
+            }
+
+            function getMeanDailyMotion(x, X) {
+                const dmp = X * 360 / 1577917828;
+                return dmp * 60; 
+            }
+            
+            function applyDeshantaraToLongitude(base_longitude, daily_motion_arcmin, user_longitude) {
+                const longitude_diff = user_longitude - UJJAIN_LONGITUDE;
+                const correction_deg = ((daily_motion_arcmin / 60) * longitude_diff) / 360;
+                return pyMod(base_longitude + correction_deg, 360);
+            }
+
+            function getApogeeLongitude(x, X, D, user_longitude) {
+                let ujjain_apogee_long = 0.0;
+                let daily_motion_arcmin = 0;
+                if (x === "sun") {
+                    X = 387; 
+                    ujjain_apogee_long = pyMod(D * X, 1577917828000) * 360 / 1577917828000;
+                    daily_motion_arcmin = getMeanDailyMotion("sunaps", 0.387);
+                } else if (x === "moon") {
+                    X = 488203000; 
+                    ujjain_apogee_long = pyMod(D * X, 1577917828000) * 360 / 1577917828000;
+                    daily_motion_arcmin = getMeanDailyMotion("apsis", 488203);
+                }
+                return applyDeshantaraToLongitude(ujjain_apogee_long, daily_motion_arcmin, user_longitude);
+            }
+
+            function getEpicycleCircumference(x) {
+                if (x === "sun") return 14 * 60;
+                if (x === "moon") return 32 * 60;
+                return 0;
+            }
+
+            function getEpicycleCorrectionFactor(x) { return 20; }
+
+            function getTrueLongitude(x, X, p, D, user_longitude) {
+                const ujjain_mean_long = getMeanLongitude(x, X, D);
+                const corrected_mean_long = applyDeshantaraToLongitude(ujjain_mean_long, getMeanDailyMotion(x, X), user_longitude);
+                let finpos = pyMod(corrected_mean_long + (getMeanDailyMotion(x, X) * p / 60), 360);
+                
+                let paridhi1 = getEpicycleCircumference(x);
+                const paridhis = getEpicycleCorrectionFactor(x);
+                
+                let dm2;
+                if (x === "moon") dm2 = getMeanDailyMotion("apsis", 488203);
+                else if (x === "sun") dm2 = getMeanDailyMotion("sunaps", 0.387);
+                else return finpos; 
+
+                const corrected_apogee_long = getApogeeLongitude(x, X, D, user_longitude);
+                let truepos_val = pyMod((corrected_apogee_long + (dm2 * p / 60)) - finpos, 360);
+                
+                let basesin = sin(radians(truepos_val));
+                if (basesin < 0) basesin = -basesin;
+
+                let dim = 0;
+                if (!((truepos_val > 90 && truepos_val < 180) || (truepos_val > 270))) dim = basesin * paridhis;
+                paridhi1 = paridhi1 - dim;
+
+                const finald = ((basesin * 3438 * paridhi1) / (360 * 60)) / 60;
+
+                if (truepos_val < 180) finpos += finald;
+                else finpos -= finald;
+                return pyMod(finpos, 360);
+            }
+            
+            function getTrueDailyMotion(x, X, p, D, user_longitude) {
+                const ujjain_mean_long = getMeanLongitude(x, X, D);
+                const corrected_mean_long = applyDeshantaraToLongitude(ujjain_mean_long, getMeanDailyMotion(x, X), user_longitude);
+                let finpos = pyMod(corrected_mean_long + (getMeanDailyMotion(x, X) * p / 60), 360);
+
+                let paridhi1 = getEpicycleCircumference(x);
+                const paridhis = getEpicycleCorrectionFactor(x);
+                let dm2;
+                if (x === "moon") dm2 = getMeanDailyMotion("apsis", 488203);
+                else if (x === "sun") dm2 = getMeanDailyMotion("sunaps", 0.387);
+                else return getMeanDailyMotion(x, X);
+                
+                const corrected_apogee_long = getApogeeLongitude(x, X, D, user_longitude);
+                let truepos_val = pyMod((corrected_apogee_long + (dm2 * p / 60)) - finpos, 360);
+
+                let basesin = sin(radians(truepos_val));
+                if (basesin < 0) basesin = -basesin;
+
+                let dim = 0;
+                if (!((truepos_val > 90 && truepos_val < 180) || (truepos_val > 270))) dim = basesin * paridhis;
+                paridhi1 = paridhi1 - dim;
+
+                const dmp = getMeanDailyMotion(x, X);
+                let dmaps = (x === "moon") ? getMeanDailyMotion("apsis", 488203) : getMeanDailyMotion("sunaps", 0.387);
+                const dmx = dmp - dmaps;
+
+                let bsin1 = sin(radians(1.875 + truepos_val));
+                let bsin2 = sin(radians(truepos_val - 1.875));
+                if (bsin1 < 0) bsin1 = -bsin1;
+                if (bsin2 < 0) bsin2 = -bsin2;
+
+                const bsindiff = abs((bsin1 - bsin2) * 3438);
+                const diff2 = dmx * (bsindiff) / 225;
+                const findiff = ((diff2 * paridhi1) / (360 * 60));
+
+                let finaldm;
+                if (truepos_val > 90 && truepos_val < 270) finaldm = dmp + findiff;
+                else finaldm = dmp - findiff;
+                return finaldm;
+            }
+
+            function getAyanamsha(D) {
+                const precession_revolutions = 600;
+                const current_cycle_pos = (pyMod(D * precession_revolutions, 1577917828) * 360) / 1577917828;
+                
+                const angle = current_cycle_pos;
+                let bhuja = 0.0;
+                if (angle <= 90) bhuja = angle;
+                else if (angle <= 180) bhuja = 180 - angle;
+                else if (angle <= 270) bhuja = angle - 180;
+                else bhuja = 360 - angle;
+
+                const ayanamsha = (bhuja * 3) / 10;
+                return { ayanamsha, cycle_pos: current_cycle_pos };
+            }
+
+            function getMeanOppositionLongitude(x, X, D) {
+                let tdo = getMeanLongitude(x, X, D);
+                return (tdo > 180) ? tdo - 180 : tdo + 180;
+            }
+
+            function getZodiacSignInfo(td_val) {
+                const signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
+                const signIndex = Math.floor(pyMod(td_val, 360) / 30);
+                return { index: signIndex, name: signs[signIndex] };
+            }
+
+            function getNakshatra(finpos) {
+                const nakshatras = [
+                    "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigshira", "Aridra",
+                    "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni",
+                    "Hasta", "Chitra", "Swati", "Vishaka", "Anuradha", "Jyeshtha",
+                    "Moola", "Purva Ashada", "Uttar Ashada", "Shravana", "Dhanishta",
+                    "Shatbhisha", "Purva Bhadra", "Uttar Bhadra", "Revathi"
+                ];
+                const index = Math.floor(pyMod(finpos, 360) / (360 / 27));
+                return nakshatras[index] || "Unknown";
+            }
+            
+            function getVisibleSubcontinents(date, type) {
+                const utcHour = date.getUTCHours();
+                const utcOffset = utcHour * 15;
+                let centralLon = (type === 'solar') ? pyMod(utcOffset + 180, 360) : pyMod(utcOffset, 360);
+                if (centralLon >= 270 || centralLon < 60) return "The Americas";
+                if (centralLon >= 60 && centralLon < 150) return "Europe, Africa, and West Asia";
+                if (centralLon >= 150 && centralLon < 270) return "Central/South Asia and Oceania";
+                return "The Pacific Ocean region";
+            }
+            
+            function predictEclipses(currentDate, D, type, user_longitude) {
+                const isSolar = type === 'solar';
+                let results = [];
+                let td1 = isSolar ? getMeanLongitude("sun", sun, D) : getMeanOppositionLongitude("sun", sun, D);
+                let td2 = getMeanLongitude("moon", moon, D);
+                let p = (td1 - td2) * 1577917828 / ((moon - sun) * 360);
+                if (p < 0) p += (1577917828 / (moon - sun));
+                
+                const rangeWidth = isSolar ? 15 : 12;
+
+                for (let i = 0; i < 30 && results.length < 5; i++) {
+                    const tdrf = (getMeanLongitude("rahu", rahu, D) + p * 360 * (rahu / 1577917828));
+                    const tdraf2 = (getMeanOppositionLongitude("rahu", rahu, D) + p * 360 * (rahu / 1577917828));
+                    const td1f = td1 + p * 360 * (sun / 1577917828);
+
+                    if (isInCircularRange(pyMod(tdrf, 360), pyMod(td1f, 360), rangeWidth) || isInCircularRange(pyMod(tdraf2, 360), pyMod(td1f, 360), rangeWidth)) {
+                        let trueBodyPos, otherBodyPos;
+                        if (isSolar) {
+                            trueBodyPos = getTrueLongitude("sun", sun, p, D, user_longitude);
+                            otherBodyPos = getTrueLongitude("moon", moon, p, D, user_longitude);
+                        } else {
+                            const sunTruePos = getTrueLongitude("sun", sun, p, D, user_longitude);
+                            trueBodyPos = pyMod(sunTruePos + 180, 360);
+                            otherBodyPos = getTrueLongitude("moon", moon, p, D, user_longitude);
+                        }
+                        
+                        let diff = trueBodyPos - otherBodyPos;
+                        if (diff > 180) diff -= 360;
+                        if (diff < -180) diff += 360;
+                        
+                        const x = (diff * 60) / (getTrueDailyMotion("moon", moon, p, D, user_longitude) - getTrueDailyMotion("sun", sun, p, D, user_longitude));
+                        const final_eclipse_time_days = p + x;
+                        
+                        let eclipseDate = new Date(currentDate);
+                        eclipseDate.setHours(0, 0, 0, 0);
+                        eclipseDate.setTime(eclipseDate.getTime() + final_eclipse_time_days * MS_PER_DAY);
+                        
+                        results.push({ date: eclipseDate, offset: final_eclipse_time_days });
+                    }
+                    p += (1577917828 / (moon - sun));
+                }
+                return results;
+            }
+
+            function calculateRisingPeriods(latitude_deg) {
+                const R = 3438;
+                const GREATEST_DECLINATION_DEG = 23.4392811;
+                const EQUATORIAL_RISING_PRANAS = [1670, 1795, 1935];
+                
+                const lat_rad = radians(latitude_deg);
+                const equinoctial_shadow = 12 * tan(lat_rad);
+                
+                let ascensional_differences_pranas = [];
+                for (const endpoint_deg of [30, 60, 90]) {
+                    const sin_greatest_declination_modern = sin(radians(GREATEST_DECLINATION_DEG));
+                    const sin_longitude_modern = sin(radians(endpoint_deg));
+                    const sin_declination_modern = sin_longitude_modern * sin_greatest_declination_modern;
+                    const declination_rad = asin(sin_declination_modern);
+                    
+                    const sine_declination = R * sin_declination_modern;
+                    const day_radius = R * cos(declination_rad);
+                    const earth_sine = (sine_declination * equinoctial_shadow) / 12;
+                    const sine_asc_diff = (earth_sine * R) / day_radius;
+                    
+                    const asc_diff_rad = asin(sine_asc_diff / R);
+                    const asc_diff_deg = degrees(asc_diff_rad);
+                    ascensional_differences_pranas.push(asc_diff_deg * 60);
+                }
+                
+                const cara_khandas = [
+                    ascensional_differences_pranas[0],
+                    ascensional_differences_pranas[1] - ascensional_differences_pranas[0],
+                    ascensional_differences_pranas[2] - ascensional_differences_pranas[1]
+                ];
+                
+                let local_rising_pranas = [
+                    EQUATORIAL_RISING_PRANAS[0] - cara_khandas[0],
+                    EQUATORIAL_RISING_PRANAS[1] - cara_khandas[1],
+                    EQUATORIAL_RISING_PRANAS[2] - cara_khandas[2]
+                ];
+                
+                local_rising_pranas.push(EQUATORIAL_RISING_PRANAS[2] + cara_khandas[2]);
+                local_rising_pranas.push(EQUATORIAL_RISING_PRANAS[1] + cara_khandas[1]);
+                local_rising_pranas.push(EQUATORIAL_RISING_PRANAS[0] + cara_khandas[0]);
+                
+                return local_rising_pranas.concat(local_rising_pranas.slice().reverse());
+            }
+
+            function applyIISTCorrection(local_time_object, longitude_deg) {
+                const longitude_difference = ist_meridian - longitude_deg;
+                const time_correction_seconds = longitude_difference * 4 * 60;
+                return new Date(local_time_object.getTime() + time_correction_seconds * 1000);
+            }
+
+            function calculateBodyRiseSet(body_name, rev_count, latitude_deg, longitude_deg, for_date, D, remainder_days) {
+                const R = 3438;
+                const GREATEST_DECLINATION_DEG = 23.4392811;
+                
+                const body_pos_sidereal = getTrueLongitude(body_name, rev_count, remainder_days, D, longitude_deg);
+                const { ayanamsha, cycle_pos } = getAyanamsha(D);
+                
+                let body_pos_tropical = (cycle_pos > 90 && cycle_pos < 270) ?
+                    pyMod(body_pos_sidereal + ayanamsha, 360) :
+                    pyMod(body_pos_sidereal - ayanamsha, 360);
+
+                const sin_greatest_declination_modern = sin(radians(GREATEST_DECLINATION_DEG));
+                const sin_longitude_modern = sin(radians(body_pos_tropical));
+                const sin_declination_modern = sin_longitude_modern * sin_greatest_declination_modern;
+                const declination_rad = asin(sin_declination_modern);
+                const sine_declination = R * sin_declination_modern;
+                
+                const is_north_declination = (sine_declination >= 0);
+                
+                const lat_rad = radians(latitude_deg);
+                const equinoctial_shadow = 12 * tan(lat_rad);
+                const day_radius = R * cos(declination_rad);
+                const earth_sine = (abs(sine_declination) * equinoctial_shadow) / 12;
+                const sine_asc_diff = (earth_sine * R) / day_radius;
+                const asc_diff_rad = asin(sine_asc_diff / R);
+                const asc_diff_pranas = degrees(asc_diff_rad) * 60;
+                
+                const quarter_day_pranas = 5400;
+                let half_day_pranas = (is_north_declination) ?
+                    quarter_day_pranas + asc_diff_pranas :
+                    quarter_day_pranas - asc_diff_pranas;
+                
+                const half_night_pranas = 10800 - half_day_pranas;
+                const local_sunrise_seconds = half_night_pranas * 4;
+                const local_sunset_seconds = (half_night_pranas + (2 * half_day_pranas)) * 4;
+                
+                const midnight = new Date(for_date);
+                midnight.setHours(0, 0, 0, 0);
+                
+                const local_rise_time = new Date(midnight.getTime() + local_sunrise_seconds * 1000);
+                const local_set_time = new Date(midnight.getTime() + local_sunset_seconds * 1000);
+                
+                const ist_rise_time = applyIISTCorrection(local_rise_time, longitude_deg);
+                const ist_set_time = applyIISTCorrection(local_set_time, longitude_deg);
+                
+                return { rise: ist_rise_time, set: ist_set_time };
+            }
+
+            function calculateAscendant(latitude_deg, longitude_deg, time_now, D, remainder_days) {
+                const rising_periods = calculateRisingPeriods(latitude_deg);
+                const { rise: current_sunrise, set: current_sunset } = calculateBodyRiseSet("sun", sun, latitude_deg, longitude_deg, time_now, D, remainder_days);
+
+                let reference_time;
+                let is_before_reference;
+
+                if (time_now < current_sunrise) {
+                    reference_time = current_sunrise;
+                    is_before_reference = true;
+                } else if (time_now >= current_sunrise && time_now <= current_sunset) {
+                    reference_time = current_sunrise;
+                    is_before_reference = false;
+                } else { 
+                    reference_time = current_sunset;
+                    is_before_reference = false;
+                }
+
+                const midnight = new Date(reference_time);
+                midnight.setHours(0, 0, 0, 0);
+                const offset_days = (reference_time.getTime() - midnight.getTime()) / MS_PER_DAY;
+                
+                const refDate = new Date(reference_time);
+                const timeDiffRef = refDate.getTime() - startEpoch.getTime();
+                const countRef = Math.floor(timeDiffRef / MS_PER_DAY);
+                const D_ref = 714404167521 + countRef;
+                const sun_pos_at_reference = getTrueLongitude("sun", sun, offset_days, D_ref, longitude_deg);
+
+                let ascendant_longitude;
+
+                if (is_before_reference) { 
+                    const time_before_sunrise_seconds = (reference_time.getTime() - time_now.getTime()) / 1000;
+                    const pranas_before_sunrise = time_before_sunrise_seconds / 4;
+
+                    const sun_sign_index = Math.floor(sun_pos_at_reference / 30);
+                    const degrees_in_sign = sun_pos_at_reference % 30;
+
+                    const bhukta_pranas = degrees_in_sign * rising_periods[sun_sign_index] / 30;
+                    let pranas_to_go_back = pranas_before_sunrise - bhukta_pranas;
+
+                    let current_sign_index = (sun_sign_index - 1 + 12) % 12;
+                    while (pranas_to_go_back > rising_periods[current_sign_index]) {
+                        pranas_to_go_back -= rising_periods[current_sign_index];
+                        current_sign_index = (current_sign_index - 1 + 12) % 12;
+                    }
+                    
+                    const degrees_to_go_back_into_sign = (pranas_to_go_back * 30) / rising_periods[current_sign_index];
+                    const end_of_sign_longitude = (current_sign_index + 1) * 30;
+                    ascendant_longitude = end_of_sign_longitude - degrees_to_go_back_into_sign;
+
+                } else { 
+                    let starting_lagna;
+                    if (reference_time.getTime() === current_sunrise.getTime()) {
+                        starting_lagna = sun_pos_at_reference;
+                    } else {
+                        starting_lagna = pyMod(sun_pos_at_reference + 180, 360);
+                    }
+
+                    const time_since_ref_seconds = (time_now.getTime() - reference_time.getTime()) / 1000;
+                    const time_in_pranas = time_since_ref_seconds / 4;
+                    
+                    const starting_sign_index = Math.floor(starting_lagna / 30);
+                    const degrees_in_sign = starting_lagna % 30;
+                    
+                    const bhogya_pranas = (30 - degrees_in_sign) * rising_periods[starting_sign_index] / 30;
+                    let remaining_pranas = time_in_pranas - bhogya_pranas;
+                    
+                    let current_sign_index = (starting_sign_index + 1) % 12;
+                    while (remaining_pranas > rising_periods[current_sign_index]) {
+                        remaining_pranas -= rising_periods[current_sign_index];
+                        current_sign_index = (current_sign_index + 1) % 12;
+                    }
+                    
+                    const degrees_into_asc_sign = (remaining_pranas * 30) / rising_periods[current_sign_index];
+                    ascendant_longitude = (current_sign_index * 30) + degrees_into_asc_sign;
+                }
+                
+                return { ascendant: pyMod(ascendant_longitude, 360), sunrise: current_sunrise };
+            }
+
+            function predictPanchakPeriods(currentDate, D, user_longitude) {
+                let results = [];
+                let is_in_panchak = false;
+                
+                const moon_pos_now = getTrueLongitude("moon", moon, 0, D, user_longitude);
+                if (moon_pos_now >= 300) {
+                    is_in_panchak = true;
+                }
+
+                for (let day_offset = 0; day_offset < 90 && results.length < 4; day_offset++) {
+                    const pos_today = getTrueLongitude("moon", moon, day_offset, D, user_longitude);
+                    const pos_tomorrow = getTrueLongitude("moon", moon, day_offset + 1, D, user_longitude);
+
+                    if (!is_in_panchak && pos_today < 300 && pos_tomorrow >= 300) {
+                        const daily_motion = pos_tomorrow - pos_today;
+                        const distance_to_go = 300 - pos_today;
+                        const fraction_of_day = distance_to_go / daily_motion;
+                        
+                        let startTime = new Date(currentDate);
+                        startTime.setHours(0,0,0,0);
+                        startTime.setTime(startTime.getTime() + (day_offset + fraction_of_day) * MS_PER_DAY);
+                        results.push({ type: 'Starts', date: startTime });
+                        is_in_panchak = true;
+                    }
+
+                    if (is_in_panchak && pos_today > 300 && pos_tomorrow < 30) { 
+                        const daily_motion = (pos_tomorrow + 360) - pos_today;
+                        const distance_to_go = 360 - pos_today;
+                        const fraction_of_day = distance_to_go / daily_motion;
+                        
+                        let endTime = new Date(currentDate);
+                        endTime.setHours(0,0,0,0);
+                        endTime.setTime(endTime.getTime() + (day_offset + fraction_of_day) * MS_PER_DAY);
+                        results.push({ type: 'Ends', date: endTime });
+                        is_in_panchak = false;
+                    }
+                }
+                return results;
+            }
+            
+            function findCurrentPanchakStart(currentDate, D, user_longitude) {
+                for (let day_offset = 0; day_offset > -90; day_offset--) {
+                    const pos_today = getTrueLongitude("moon", moon, day_offset, D, user_longitude);
+                    const pos_yesterday = getTrueLongitude("moon", moon, day_offset - 1, D, user_longitude);
+
+                    if (pos_yesterday < 300 && pos_today >= 300) {
+                        const daily_motion = pos_today - pos_yesterday;
+                        if (daily_motion <= 0) continue; 
+                        const distance_to_go = 300 - pos_yesterday;
+                        const fraction_of_day = distance_to_go / daily_motion;
+
+                        let startTime = new Date(currentDate);
+                        startTime.setHours(0, 0, 0, 0);
+                        startTime.setTime(startTime.getTime() + ((day_offset - 1) * MS_PER_DAY) + (fraction_of_day * MS_PER_DAY));
+                        return startTime;
+                    }
+                }
+                return null;
+            }
+
+            function predictEquinoxesAndSolstices(currentDate, D, remainder_days, user_longitude) {
+                const sidereal_sun = getTrueLongitude("sun", sun, remainder_days, D, user_longitude);
+                const { ayanamsha, cycle_pos } = getAyanamsha(D);
+                let tropical_sun = (cycle_pos > 90 && cycle_pos < 270) ?
+                    pyMod(sidereal_sun + ayanamsha, 360) :
+                    pyMod(sidereal_sun - ayanamsha, 360);
+
+                const seasonal_points = {
+                    0: "Vernal Equinox", 90: "Summer Solstice",
+                    180: "Autumnal Equinox", 270: "Winter Solstice"
+                };
+                const sun_avg_motion_deg = getMeanDailyMotion("sun", sun) / 60;
+                
+                const sorted_points = Object.keys(seasonal_points).map(Number).sort((a,b) => a-b);
+                
+                for (const point of sorted_points) {
+                    if (tropical_sun < point) {
+                        const distance = point - tropical_sun;
+                        const days_to_event = distance / sun_avg_motion_deg;
+                        const event_date = new Date(currentDate.getTime() + days_to_event * MS_PER_DAY);
+                        return { name: seasonal_points[point], date: event_date };
+                    }
+                }
+                
+                const distance = (360 - tropical_sun) + sorted_points[0];
+                const days_to_event = distance / sun_avg_motion_deg;
+                const event_date = new Date(currentDate.getTime() + days_to_event * MS_PER_DAY);
+                return { name: seasonal_points[sorted_points[0]], date: event_date };
+            }
+
+            function getMoonPhaseStatus(selectedDate, D, remainder_days, user_longitude) {
+                const moonTruePos = getTrueLongitude('moon', moon, remainder_days, D, user_longitude);
+                const sunTruePos = getTrueLongitude('sun', sun, remainder_days, D, user_longitude);
+                const moonDailyMotion = getTrueDailyMotion('moon', moon, remainder_days, D, user_longitude) / 60;
+                const sunDailyMotion = getTrueDailyMotion('sun', sun, remainder_days, D, user_longitude) / 60;
+                const relativeSpeed = moonDailyMotion - sunDailyMotion;
+                const diff = pyMod(moonTruePos - sunTruePos, 360);
+
+                const tithiNumber = Math.floor(diff / 12) + 1;
+                
+                const targetStartAngle = (tithiNumber - 1) * 12;
+                const targetEndAngle = tithiNumber * 12;
+
+                const angleSinceStart = pyMod(diff - targetStartAngle, 360);
+                const angleUntilEnd = pyMod(targetEndAngle - diff, 360);
+
+                const daysSinceStart = angleSinceStart / relativeSpeed;
+                const daysUntilEnd = angleUntilEnd / relativeSpeed;
+
+                const startTime = new Date(selectedDate.getTime() - daysSinceStart * MS_PER_DAY);
+                const endTime = new Date(selectedDate.getTime() + daysUntilEnd * MS_PER_DAY);
+                
+                const tithiElapsed = Math.floor(diff / 12);
+                
+                let paksha, tithiText;
+                if (diff >= 0 && diff < 180) {
+                    paksha = "Waxing (Shukla Paksha)";
+                    tithiText = `${tithiElapsed} lunar day${tithiElapsed === 1 ? '' : 's'} elapsed`;
+                } else {
+                    paksha = "Waning (Krishna Paksha)";
+                    const daysInWaning = tithiElapsed - 15;
+                    tithiText = `${daysInWaning} lunar day${daysInWaning === 1 ? '' : 's'} elapsed`;
+                }
+                
+                const TITHI_NAMES = ["Pratipada", "Dwitiya", "Tritiya", "Chaturthi", "Panchami", "Shashthi", "Saptami", "Ashtami", "Navami", "Dashami", "Ekadashi", "Dwadashi", "Trayodashi", "Chaturdashi"];
+                let tithiName = (tithiNumber <= 15) ? TITHI_NAMES[tithiNumber - 1] : TITHI_NAMES[tithiNumber - 16];
+                if (tithiNumber === 15) tithiName = "Purnima";
+                if (tithiNumber === 30) tithiName = "Amavasya";
+
+                const moonPosInfo = getZodiacSignInfo(moonTruePos);
+                const moonNakshatra = getNakshatra(moonTruePos);
+
+                return { tithiName, tithiNumber, paksha, tithiText, startTime, endTime, moonTruePos, moonPosInfo, moonNakshatra };
+            }
+
+            // === MAIN CALCULATION FOR SS ===
+            function runAllCalculations() {
+                let currentDateTime;
+
+                if (realtimeCheckbox.checked) {
+                    currentDateTime = new Date();
+                    const istOffset = 5.5 * 60 * 60 * 1000;
+                    const istNow = new Date(currentDateTime.getTime() + istOffset);
+                    const year = istNow.getUTCFullYear();
+                    const month = (istNow.getUTCMonth() + 1).toString().padStart(2, '0');
+                    const day = istNow.getUTCDate().toString().padStart(2, '0');
+                    const hours = istNow.getUTCHours().toString().padStart(2, '0');
+                    const minutes = istNow.getUTCMinutes().toString().padStart(2, '0');
+                    dateTimeInput.value = `${year}-${month}-${day}T${hours}:${minutes}`;
+                } else {
+                    currentDateTime = new Date(dateTimeInput.value + ':00+05:30');
+                }
+                
+                if (isNaN(currentDateTime.getTime())) return;
+
+                let latitude = parseFloat(latitudeInput.value);
+                let longitude = parseFloat(longitudeInput.value);
+                
+                if (latitudeDirectionInput.value === 'S') latitude = -Math.abs(latitude);
+                if (longitudeDirectionInput.value === 'W') longitude = -Math.abs(longitude);
+                
+                const timeDiff = currentDateTime.getTime() - startEpoch.getTime();
+                const count = Math.floor(timeDiff / MS_PER_DAY);
+                const remainder_ms = timeDiff % MS_PER_DAY;
+                const remainder_days = remainder_ms / MS_PER_DAY;
+
+                const D = 714404167521 + count;
+                const L = pyMod(D, 7);
+                const weekdays = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+                populateGeneralInfo(D, weekdays[L], latitude, longitude);
+                populateTithiCard(currentDateTime, D, remainder_days, longitude);
+                populateSunCard(currentDateTime, D, latitude, longitude, remainder_days);
+                populateMeanPositions(D, longitude);
+                populateApogeeNodes(D, longitude);
+                populateEclipses(currentDateTime, D, latitude, longitude);
+                populatePanchak(currentDateTime, D, longitude, remainder_days);
+                populateSeasonal(currentDateTime, D, remainder_days, longitude);
+            }
+
+            function createRow(label, value) {
+                return `<div class="result-row"><span class="result-label">${label}</span><span class="result-value">${value}</span></div>`;
+            }
+            
+            function populateGeneralInfo(D, weekday, lat, lon) {
+                generalInfoCard.innerHTML = `
+                    <h2 class="card-title">General Information</h2>
+                    ${createRow("Ahargana", D.toLocaleString())}
+                    ${createRow("Weekday", weekday)}
+                    ${createRow("Latitude", `${lat.toFixed(4)}°`)}
+                    ${createRow("Longitude", `${lon.toFixed(4)}°`)}
+                `;
+            }
+
+            function populateSunCard(date, D, lat, lon, remainder_days) {
+                const sun_pos = getTrueLongitude("sun", sun, remainder_days, D, lon);
+                const ujjain_mean_pos = getMeanLongitude("sun", sun, D);
+                const sun_mean_pos = applyDeshantaraToLongitude(ujjain_mean_pos, getMeanDailyMotion("sun", sun), lon);
+                const { ayanamsha, cycle_pos } = getAyanamsha(D);
+                const sun_apogee = getApogeeLongitude("sun", sun, D, lon);
+                
+                const tropical_sun = (cycle_pos > 90 && cycle_pos < 270) ? 
+                    pyMod(sun_pos + ayanamsha, 360) : 
+                    pyMod(sun_pos - ayanamsha + 360, 360);
+
+                const sun_pos_info = getZodiacSignInfo(sun_pos);
+                const sun_mean_pos_info = getZodiacSignInfo(sun_mean_pos);
+                const sun_apogee_info = getZodiacSignInfo(sun_apogee);
+                const tropical_sun_info = getZodiacSignInfo(tropical_sun);
+
+                const { rise: sunRise, set: sunSet } = calculateBodyRiseSet("sun", sun, lat, lon, date, D, remainder_days);
+                const { ascendant } = calculateAscendant(lat, lon, date, D, remainder_days);
+                const ascendant_info = getZodiacSignInfo(ascendant);
+                
+                sunCard.innerHTML = `
+                    <h2 class="card-title">Sun Details</h2>
+                    ${createRow("True Sidereal Position", `${sun_pos.toFixed(2)}° (${sun_pos_info.name})`)}
+                    ${createRow("Mean Position", `${sun_mean_pos.toFixed(2)}° (${sun_mean_pos_info.name})`)}
+                    ${createRow("Apogee", `${sun_apogee.toFixed(2)}° (${sun_apogee_info.name})`)}
+                    ${createRow("Ayanamsha", `${ayanamsha.toFixed(4)}°`)}
+                    ${createRow("True Tropical Position", `${tropical_sun.toFixed(2)}° (${tropical_sun_info.name})`)}
+                    <h3 class="font-semibold text-gray-700 mt-4 mb-2">Local Times</h3>
+                    ${createRow("Sunrise", sunRise.toLocaleTimeString('en-IN', {timeZone: 'Asia/Kolkata'}))}
+                    ${createRow("Sunset", sunSet.toLocaleTimeString('en-IN', {timeZone: 'Asia/Kolkata'}))}
+                `;
+            }
+
+            function populateMeanPositions(D, user_longitude) {
+                let content = '<h2 class="card-title">Mean Positions (Corrected for Longitude)</h2>';
+                content += `<div class="overflow-x-auto"><table class="w-full text-left">
+                    <thead><tr class="border-b border-gray-200 text-gray-600">
+                        <th class="py-2 px-1">Planet</th><th class="py-2 px-1">Degree</th><th class="py-2 px-1">Sign</th>
+                    </tr></thead><tbody>`;
+                
+                const planetsToDisplay = { "Moon": moon, "Mars": mars, "Mercury": mercury, "Jupiter": jupiter, "Venus": venus, "Saturn": saturn };
+                for (const [name, rev] of Object.entries(planetsToDisplay)) {
+                    const ujjain_pos = getMeanLongitude(name.toLowerCase(), rev, D);
+                    const daily_motion = getMeanDailyMotion(name.toLowerCase(), rev);
+                    const pos = applyDeshantaraToLongitude(ujjain_pos, daily_motion, user_longitude);
+                    const sign = getZodiacSignInfo(pos).name;
+                    content += `<tr class="border-b border-gray-100 clickable-row" data-planet="${name.toLowerCase()}" data-mean-pos="${pos}">
+                        <td class="py-2 px-1 font-medium">${name}</td>
+                        <td class="py-2 px-1">${pos.toFixed(2)}°</td>
+                        <td class="py-2 px-1">${sign}</td>
+                    </tr>`;
+                }
+                content += `</tbody></table></div>`;
+                meanPositionsCard.innerHTML = content;
+                
+                document.querySelectorAll('#ss-mean-positions-card .clickable-row').forEach(row => {
+                    row.addEventListener('click', () => {
+                        const planetName = row.dataset.planet;
+                        const meanPosition = parseFloat(row.dataset.meanPos);
+                        showPlanetDetails(planetName, meanPosition);
+                    });
+                });
+            }
+
+            function populateApogeeNodes(D, user_longitude) {
+                let content = '<h2 class="card-title">Apogees & Nodes (Corrected for Longitude)</h2>';
+                const moonApogee = getApogeeLongitude("moon", apsis, D, user_longitude);
+                
+                const ujjain_rahu = getMeanLongitude("rahu", rahu, D);
+                const rahuPos = applyDeshantaraToLongitude(ujjain_rahu, getMeanDailyMotion("rahu", rahu), user_longitude);
+                const ketuPos = pyMod(rahuPos + 180, 360);
+
+                content += createRow("Moon Apogee", `${moonApogee.toFixed(2)}° (${getZodiacSignInfo(moonApogee).name})`);
+                content += createRow("Rahu (Node)", `${rahuPos.toFixed(2)}° (${getZodiacSignInfo(rahuPos).name})`);
+                content += createRow("Ketu (Node)", `${ketuPos.toFixed(2)}° (${getZodiacSignInfo(ketuPos).name})`);
+                apogeeNodesCard.innerHTML = content;
+            }
+
+            function populateTithiCard(date, D, remainder_days, user_longitude) {
+                const moonPhaseStatus = getMoonPhaseStatus(date, D, remainder_days, user_longitude);
+                const timeFormat = {timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' };
+                const dateFormat = {timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short' };
+                
+                tithiCard.innerHTML = `
+                    <h2 class="card-title">Tithi & Moon Phase</h2>
+                    ${createRow("True Position", `${moonPhaseStatus.moonTruePos.toFixed(2)}° (${moonPhaseStatus.moonPosInfo.name}, ${moonPhaseStatus.moonNakshatra})`)}
+                    ${createRow("Current Tithi", `${moonPhaseStatus.tithiName} (${moonPhaseStatus.tithiNumber})`)}
+                    ${createRow("Paksha", moonPhaseStatus.paksha)}
+                    ${createRow("Starts", `${moonPhaseStatus.startTime.toLocaleDateString('en-IN', dateFormat)}, ${moonPhaseStatus.startTime.toLocaleTimeString('en-IN', timeFormat)}`)}
+                    ${createRow("Ends", `${moonPhaseStatus.endTime.toLocaleDateString('en-IN', dateFormat)}, ${moonPhaseStatus.endTime.toLocaleTimeString('en-IN', timeFormat)}`)}
+                `;
+            }
+
+            function populateEclipses(date, D, lat, lon) {
+                let content = '<h2 class="card-title">Eclipse Predictions</h2>';
+                
+                const solarEclipses = predictEclipses(date, D, 'solar', lon);
+                const lunarEclipses = predictEclipses(date, D, 'lunar', lon);
+
+                content += '<p class="text-sm font-semibold text-gray-600 mb-2">Upcoming Solar Eclipses:</p>';
+                content += '<ul class="eclipse-list space-y-1">';
+                if (solarEclipses.length > 0) {
+                    solarEclipses.forEach(e => {
+                        const { rise: sunRise, set: sunSet } = calculateBodyRiseSet("sun", sun, lat, lon, e.date, D, 0);
+                        const isVisible = e.date > sunRise && e.date < sunSet;
+                        const visibilityTag = isVisible ? '<span class="text-green-600 font-semibold"> (Visible)</span>' : '<span class="text-red-600 font-semibold"> (Not Visible)</span>';
+                        content += `<li data-offset="${e.offset}" data-type="solar" data-visible="${isVisible}">${e.date.toLocaleDateString('en-IN', { month: 'long', day: 'numeric', year: 'numeric' })}${visibilityTag}</li>`;
+                    });
+                } else {
+                    content += `<li class="text-sm text-gray-500">None found in search period.</li>`;
+                }
+                content += '</ul>';
+
+                content += '<p class="text-sm font-semibold text-gray-600 mt-4 mb-2">Upcoming Lunar Eclipses:</p>';
+                content += '<ul class="eclipse-list space-y-1">';
+                if (lunarEclipses.length > 0) {
+                    lunarEclipses.forEach(e => {
+                        const { rise: sunRise, set: sunSet } = calculateBodyRiseSet("sun", sun, lat, lon, e.date, D, 0);
+                        const isVisible = e.date < sunRise || e.date > sunSet;
+                        const visibilityTag = isVisible ? '<span class="text-green-600 font-semibold"> (Visible)</span>' : '<span class="text-red-600 font-semibold"> (Not Visible)</span>';
+                        content += `<li data-offset="${e.offset}" data-type="lunar" data-visible="${isVisible}">${e.date.toLocaleDateString('en-IN', { month: 'long', day: 'numeric', year: 'numeric' })}${visibilityTag}</li>`;
+                    });
+                } else {
+                    content += `<li class="text-sm text-gray-500">None found in search period.</li>`;
+                }
+                content += '</ul>';
+                
+                eclipseCard.innerHTML = content;
+                
+                document.querySelectorAll('#ss-eclipse-card li').forEach(item => {
+                    if (item.dataset.offset) {
+                        item.addEventListener('click', () => {
+                            const offset = parseFloat(item.dataset.offset);
+                            const type = item.dataset.type;
+                            const isVisible = item.dataset.visible === 'true';
+                            showEclipseDetails(offset, type, isVisible);
+                        });
+                    }
+                });
+            }
+
+            function showEclipseDetails(offset, type, isVisible) {
+                const currentDateTime = new Date(dateTimeInput.value);
+                const longitude = parseFloat(longitudeInput.value);
+                const timeDiff = currentDateTime.getTime() - startEpoch.getTime();
+                const count = Math.floor(timeDiff / MS_PER_DAY);
+                const D = 714404167521 + count;
+
+                const eclipseDate = new Date(currentDateTime);
+                eclipseDate.setHours(0,0,0,0);
+                eclipseDate.setTime(eclipseDate.getTime() + offset * MS_PER_DAY);
+                
+                const isSolar = type === 'solar';
+                const bodyName = isSolar ? "sun" : "moon";
+                const durationMinutes = isSolar ? 60 : 90;
+                const durationMillis = durationMinutes * 60 * 1000;
+
+                const start = new Date(eclipseDate.getTime() - durationMillis);
+                const end = new Date(eclipseDate.getTime() + durationMillis);
+
+                const timeFormatOptions = { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' };
+
+                const pos = getTrueLongitude(bodyName, isSolar ? sun : moon, offset, D, longitude);
+                const sign = getZodiacSignInfo(pos).name;
+                const naksh = getNakshatra(pos);
+
+                modalTitle.textContent = `${type.charAt(0).toUpperCase() + type.slice(1)} Eclipse Details`;
+                modalDate.textContent = eclipseDate.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Kolkata' });
+                modalPosition.textContent = `${pos.toFixed(2)}° (${sign}, ${naksh})`;
+                modalStartTime.textContent = start.toLocaleTimeString('en-IN', timeFormatOptions);
+                modalMaxTime.textContent = eclipseDate.toLocaleTimeString('en-IN', timeFormatOptions);
+                modalEndTime.textContent = end.toLocaleTimeString('en-IN', timeFormatOptions);
+                
+                modalSubcontinents.textContent = getVisibleSubcontinents(eclipseDate, type);
+                modalVisibility.textContent = "Visibility needs local verification.";
+                modalVisibility.style.color = '#F59E0B';
+
+                eclipseModal.classList.remove('hidden');
+            }
+
+            function showPlanetDetails(planetName, meanPosition) {
+                const nakshatra = getNakshatra(meanPosition);
+                const sign = getZodiacSignInfo(meanPosition).name;
+                
+                document.getElementById('ss-planet-modal-title').textContent = `${planetName.charAt(0).toUpperCase() + planetName.slice(1)} Details`;
+                document.getElementById('ss-planet-modal-nakshatra').textContent = nakshatra;
+                document.getElementById('ss-planet-modal-sign').textContent = sign;
+                
+                const currentDateTime = new Date(dateTimeInput.value);
+                const latStr = document.getElementById('ss-latitude').value;
+                const lonStr = document.getElementById('ss-longitude').value;
+                
+                let lat = parseFloat(latStr) || 0;
+                let lon = parseFloat(lonStr) || 0;
+                
+                if (document.getElementById('ss-latitudeDirection').value === 'S') lat = -Math.abs(lat);
+                if (document.getElementById('ss-longitudeDirection').value === 'W') lon = -Math.abs(lon);
+
+                const timeDiff = currentDateTime.getTime() - startEpoch.getTime();
+                const count = Math.floor(timeDiff / MS_PER_DAY);
+                const remainder_ms = timeDiff % MS_PER_DAY;
+                const remainder_days = remainder_ms / MS_PER_DAY;
+                const D = 714404167521 + count;
+
+                const revMap = { "sun": sun, "moon": moon, "mercury": mercury, "venus": venus, "mars": mars, "jupiter": jupiter, "saturn": saturn };
+                const bodyName = planetName.toLowerCase();
+                const rev = revMap[bodyName];
+                
+                let riseStr = 'N/A', setStr = 'N/A';
+                if (rev) {
+                    try {
+                        const { rise, set } = calculateBodyRiseSet(bodyName, rev, lat, lon, currentDateTime, D, remainder_days);
+                        riseStr = rise.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+                        setStr = set.toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'});
+                    } catch(e) { console.error("Error calculating SS rise/set for modal", e); }
+                }
+                
+                document.getElementById('ss-planet-modal-rise').textContent = riseStr;
+                document.getElementById('ss-planet-modal-set').textContent = setStr;
+
+                planetModalConjunctions.innerHTML = '<li>Conjunction calculations are complex and will be added soon!</li>';
+                planetModal.classList.remove('hidden');
+            }
+
+            function populatePanchak(date, D, user_longitude, remainder_days) {
+                let content = '<h2 class="card-title">Panchak Predictions</h2>';
+                const moon_pos_now = getTrueLongitude("moon", moon, remainder_days, D, user_longitude);
+
+                if (moon_pos_now >= 300) { 
+                    const upcomingPeriods = predictPanchakPeriods(date, D, user_longitude);
+                    const currentPanchakStart = findCurrentPanchakStart(date, D, user_longitude);
+
+                    content += `<div class="result-row"><span class="result-label text-red-600 font-bold">Status</span><span class="result-value text-red-600 font-bold">Currently in Panchak</span></div>`;
+                    if (currentPanchakStart) {
+                        content += createRow("Started On", `${currentPanchakStart.toLocaleString('en-IN', {timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'})}`);
+                    }
+                    if (upcomingPeriods.length > 0 && upcomingPeriods[0].type === 'Ends') {
+                        content += createRow("Ends On", `${upcomingPeriods[0].date.toLocaleString('en-IN', {timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'})}`);
+                    }
+                } else { 
+                    const panchakPeriods = predictPanchakPeriods(date, D, user_longitude);
+                    if (panchakPeriods.length > 0) {
+                        panchakPeriods.forEach(p => {
+                            content += createRow(p.type, `${p.date.toLocaleString('en-IN', {timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'})}`);
+                        });
+                    } else {
+                        content += `<div class="text-sm text-gray-500 p-1">None found in search period.</div>`;
+                    }
+                }
+                panchakCard.innerHTML = content;
+            }
+
+            function populateSeasonal(date, D, remainder_days, user_longitude) {
+                let content = '<h2 class="card-title">Seasonal Predictions</h2>';
+                const nextEvent = predictEquinoxesAndSolstices(date, D, remainder_days, user_longitude);
+                content += createRow("Next Event", nextEvent.name);
+                content += createRow("Predicted Date", nextEvent.date.toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Asia/Kolkata' }));
+                seasonalCard.innerHTML = content;
+            }
+
+            // Expose the main function so the toggle script can trigger it
+            window.ss_runAllCalculations = runAllCalculations;
+
+            // Events
+            realtimeCheckbox.addEventListener('change', () => {
+                if (realtimeCheckbox.checked) {
+                    dateTimeInput.disabled = true; calculateBtn.disabled = true;
+                    runAllCalculations();
                     realtimeInterval = setInterval(runAllCalculations, 1000);
                 } else {
-                    // Stop real-time updates
-                    clearInterval(realtimeInterval);
-                    realtimeInterval = null;
-                    dateTimeInput.disabled = false;
-                    calculateBtn.disabled = false;
+                    clearInterval(realtimeInterval); realtimeInterval = null;
+                    dateTimeInput.disabled = false; calculateBtn.disabled = false;
                 }
             });
 
-            // Calculate button listener
             calculateBtn.addEventListener('click', runAllCalculations);
-
-            // Modal close event listeners
             eclipseModalCloseBtn.addEventListener('click', () => eclipseModal.classList.add('hidden'));
-            eclipseModal.addEventListener('click', (e) => {
-                if (e.target === eclipseModal) {
-                    eclipseModal.classList.add('hidden');
-                }
-            });
             planetModalCloseBtn.addEventListener('click', () => planetModal.classList.add('hidden'));
-            planetModal.addEventListener('click', (e) => {
-                if (e.target === planetModal) {
-                    planetModal.classList.add('hidden');
-                }
-            });
-        });
-
+        })();
     </script>
 </body>
 </html>
-
