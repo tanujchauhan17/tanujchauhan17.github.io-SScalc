@@ -23,7 +23,7 @@ This application provides real-time calculations for planetary positions, eclips
 * **Conjunctions & Occultations:** Scans the ephemeris for planetary alignments and lunar occultations.
 * **Seasonal Events:** Tracks Equinoxes and Solstices.
 
-### 4. Hindu Lunar Calender & Cultural Dashboard (Just for Fun)
+### 4. Hindu Lunar Calendar & Cultural Dashboard (Just for Fun)
 * **Horoscope Generation:** Supports both North Indian and South Indian chart styles.
 * **Panchang Elements:** Real-time calculation of Tithi, Paksha and Nakshatra.
 * **Festival Predictor:** Calculates dates for major Hindu festivals (Diwali, Holi, Navratri, etc.) based on lunar-solar alignments.
