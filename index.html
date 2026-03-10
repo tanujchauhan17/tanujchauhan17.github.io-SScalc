@@ -2016,6 +2016,81 @@ function drawSolarSystemChart(time, invert) {
         ctx.fillText(body, x + pRadius + 4, y);
     });
 }
+
+// Ensure full mobile touch interactivity (Pinch-to-zoom + Drag Panning) is injected
+function setupCanvasTouchInteractions() {
+    function attachTouchEvents(canvasId, zoomKey, panXKey, panYKey, maxZoom) {
+        const canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+
+        let initialPinchDist = 0;
+        let initialZoom = 1;
+        let isDragging = false;
+        let lastX = 0, lastY = 0;
+
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 2) {
+                // Prepare for pinch to zoom
+                initialPinchDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                initialZoom = window[zoomKey] || 1;
+                isDragging = false; 
+            } else if (e.touches.length === 1 && (window[zoomKey] || 1) > 1) {
+                // Prepare for panning
+                isDragging = true;
+                lastX = e.touches[0].clientX;
+                lastY = e.touches[0].clientY;
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchmove', (e) => {
+            if (e.touches.length === 2) {
+                e.preventDefault(); // Stop page scrolling
+                const dist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                
+                // Calculate new zoom factor
+                window[zoomKey] = Math.max(1, Math.min(initialZoom * (dist / initialPinchDist), maxZoom));
+                
+                // Reset pan if zoomed completely out to prevent getting lost
+                if (window[zoomKey] === 1) {
+                    window[panXKey] = 0;
+                    window[panYKey] = 0;
+                }
+                
+                if (typeof updateCharts === 'function') updateCharts();
+            } else if (e.touches.length === 1 && isDragging && (window[zoomKey] || 1) > 1) {
+                e.preventDefault(); // Stop page scrolling
+                window[panXKey] = (window[panXKey] || 0) + (e.touches[0].clientX - lastX);
+                window[panYKey] = (window[panYKey] || 0) + (e.touches[0].clientY - lastY);
+                
+                lastX = e.touches[0].clientX;
+                lastY = e.touches[0].clientY;
+                
+                if (typeof updateCharts === 'function') updateCharts();
+            }
+        }, { passive: false });
+
+        canvas.addEventListener('touchend', () => {
+            isDragging = false;
+        });
+    }
+
+    // Attach to both charts with their respective global variable keys and zoom limits
+    attachTouchEvents('sky-canvas', 'skyZoom', 'skyPanX', 'skyPanY', 10);
+    attachTouchEvents('ss-canvas', 'ssZoom', 'ssPanX', 'ssPanY', 50);
+}
+
+// Auto-run the touch handler attachment once the DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupCanvasTouchInteractions);
+} else {
+    setupCanvasTouchInteractions();
+}
         function populateHoroscope(time, date, lat, lon, ayanamsha) {
             let asc = getAscendant(time, lat, lon, ayanamsha);
             
