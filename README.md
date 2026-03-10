@@ -47,7 +47,7 @@ This application provides real-time calculations for planetary positions, eclips
 2. **Select Date/Time:** Use the datetime picker or enable Real-time mode to watch the sky move in sync with the clock.
 3. **Toggle Views:** * Use the "Switch to SS Calc" button to compare modern data with ancient Surya Siddhanta results.
    * Click "🔭 Live Sky & System" to open the visual maps.
-   * Click "✨ Vedic & Festival Dashboard" for astrological insights.
+   * Click "Hindu Lunar Calendar Dashboard" for astrological insights.
 4. **Explore Data:** Click on planetary rows in the "Mean Positions" table to see detailed info like Rise/Set times and upcoming conjunctions.
 
 ---
