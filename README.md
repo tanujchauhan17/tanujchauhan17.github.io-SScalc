@@ -18,16 +18,16 @@ This application provides real-time calculations for planetary positions, eclips
 * **Local Sky Chart (Horizon):** A real-time 2D projection of the sky from your location. Includes constellations, zodiac signs, and planetary positions with zoom and pan capabilities.
 * **Solar System View:** A top-down heliocentric view of the solar system (Logarithmic and True Scale modes).
 
-### 3. Vedic Astrology & Cultural Dashboard
-* **Horoscope Generation:** Supports both North Indian and South Indian chart styles.
-* **Panchang Elements:** Real-time calculation of Tithi, Paksha, Nakshatra, and Ayanamsha (Precession).
-* **Festival Predictor:** Calculates dates for major Hindu festivals (Diwali, Holi, Navratri, etc.) based on lunar-solar alignments.
-* **Planetary Status:** Detailed tracking of Combustion (Asth) and Retrograde (Vakri) motions.
-
-### 4. Eclipse & Event Predictor
+### 3. Eclipse & Event Predictor
 * **Global & Local Eclipses:** Predicts upcoming Solar and Lunar eclipses with local visibility checking.
 * **Conjunctions & Occultations:** Scans the ephemeris for planetary alignments and lunar occultations.
 * **Seasonal Events:** Tracks Equinoxes and Solstices.
+
+### 4. Hindu Lunar Calender & Cultural Dashboard (Just for Fun)
+* **Horoscope Generation:** Supports both North Indian and South Indian chart styles.
+* **Panchang Elements:** Real-time calculation of Tithi, Paksha and Nakshatra.
+* **Festival Predictor:** Calculates dates for major Hindu festivals (Diwali, Holi, Navratri, etc.) based on lunar-solar alignments.
+* **Planetary Status:** Detailed tracking of Combustion and Retrograde motions.
 
 ---
 
