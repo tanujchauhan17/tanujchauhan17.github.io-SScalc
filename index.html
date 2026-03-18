@@ -563,7 +563,7 @@
                 // Sync values
                 document.getElementById('datetime').value = document.getElementById('ss-datetime').value;
                 document.getElementById('latitude').value = document.getElementById('ss-latitude').value;
-                document.getElementById('latitudeDirection').value = document.getElementById('ss-latitudeDirection').value;
+                document.getElementById('latitudeDirection').value = document.getElementById('latitudeDirection').value;
                 document.getElementById('longitude').value = document.getElementById('ss-longitude').value;
                 document.getElementById('longitudeDirection').value = document.getElementById('ss-longitudeDirection').value;
 
@@ -736,17 +736,21 @@
         });
 
         // Sky Chart Zoom & Pan Logic
-            // State for device orientation
+        // State for device orientation
         let deviceAzimuth = null;
         let deviceAltitude = null;
 
         // Listen for device orientation (Optimized for Android Chrome)
         window.addEventListener('deviceorientationabsolute', (e) => {
             // alpha is compass heading (0 = North)
-            // beta is tilt (0 = flat, 90 = vertical pointing at horizon)
+            // beta is rotation around X axis (0 = screen flat up, 90 = vertical, 180 = screen flat down)
             if (e.alpha !== null && e.beta !== null) {
+                // If we want to point the CAMERA (back of phone) at the sky:
+                // When beta = 90, phone is vertical, camera at horizon (Alt 0).
+                // When beta = 180, camera is pointing at Zenith (Alt 90).
+                // When beta = 0, camera is pointing at ground (Alt -90).
+                deviceAltitude = e.beta - 90; 
                 deviceAzimuth = e.alpha; 
-                deviceAltitude = 90 - e.beta; // Convert tilt to altitude (Zenith = 90)
                 
                 // Only trigger redraw if the charts modal is open
                 if (!document.getElementById('charts-modal').classList.contains('hidden')) {
@@ -754,6 +758,7 @@
                 }
             }
         }, true);
+
         window.skyZoom = 1;
         window.skyPanX = 0;
         window.skyPanY = 0;
@@ -1437,7 +1442,7 @@
             cache.events = [];
             let mq = Astro.SearchMoonQuarter(time);
             for(let i=0; i<8; i++) {
-                cache.events.push({ name: ['New Moon', 'Waxing Crescent', 'First Quarter', 'Waxing Gibbous', 'Full Moon', 'Waning Gibbous', 'Last Quarter', 'Waning Crescent'][mq.quarter * 2], date: mq.time.date, type: 'Phase' });
+                cache.events.push({ name: MOON_PHASE_NAMES[mq.quarter * 2], date: mq.time.date, type: 'Phase' });
                 mq = Astro.NextMoonQuarter(mq);
             }
             
@@ -1868,7 +1873,7 @@
                     let occulted = b1 === 'Moon' ? b2 : b1;
                     name = `Lunar Occultation of ${occulted}`;
                 } else {
-                    name = `${nakedEyePlanets[i]} Occults ${nakedEyePlanets[j]}`;
+                    name = `${b1} Occults ${b2}`;
                 }
             }
             
@@ -1950,12 +1955,10 @@
             let endAngle = tithiNumber * 12;
 
             // Drik Panchang-style high-precision Bisection Search
-            // A Tithi never exceeds ~27 hours, so a 1.5 day window mathematically guarantees a trap
             function findExactTithiTime(timeBase, targetAngle, isStart) {
                 let t1 = isStart ? timeBase.AddDays(-1.5) : timeBase; 
                 let t2 = isStart ? timeBase : timeBase.AddDays(1.5);
                 
-                // 40 iterations provides microsecond precision
                 for (let i = 0; i < 40; i++) {
                     let tMid = t1.AddDays((t2.ut - t1.ut) / 2);
                     let sunL = pyMod(getGeocentricApparentLongitude('Sun', tMid), 360);
@@ -1964,14 +1967,13 @@
                     
                     let diffMid = phaseMid - targetAngle;
                     
-                    // Normalize difference to handle the 360/0 boundary safely
                     if (diffMid > 180) diffMid -= 360;
                     if (diffMid < -180) diffMid += 360;
                     
                     if (diffMid > 0) {
-                        t2 = tMid; // Overshot, bring upper bound down
+                        t2 = tMid; 
                     } else {
-                        t1 = tMid; // Undershot, bring lower bound up
+                        t1 = tMid; 
                     }
                 }
                 return t1.date;
@@ -1988,7 +1990,6 @@
             let moonrise = Astro.SearchRiseSet('Moon', observer, +1, time, 1);
             let moonset = Astro.SearchRiseSet('Moon', observer, -1, time, 1);
 
-            // CRITICAL: Force IST Timezone. Standard Panchangs output in IST. 
             const tfOpts = { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit' };
             const dfOpts = { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short' };
 
@@ -2137,7 +2138,6 @@
 
         window.runAllCalculations = function() {
             let dtVal = dateTimeInput.value;
-            // Force precise IST parsing regardless of user local timezone settings
             if (dtVal.length === 16) { dtVal += ':00+05:30'; }
             
             let currentDateTime = new Date(dtVal);
@@ -2205,10 +2205,8 @@
             let currentDateTime = new Date(dtVal);
             if (isNaN(currentDateTime.getTime())) currentDateTime = new Date();
             
-            // Apply chartHourOffset from the common scroller
             const adjustedDate = new Date(currentDateTime.getTime() + chartHourOffset * 3600000);
             
-            // Update the display label in the UI
             adjustedTimeDisplay.textContent = adjustedDate.toLocaleString('en-IN', { 
                 day: '2-digit', month: 'short', year: 'numeric',
                 hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
@@ -2217,150 +2215,6 @@
             let time = new Astro.AstroTime(adjustedDate);
             drawSkyChart(time, observer, chartInverted);
             drawSolarSystemChart(time, chartInverted);
-        }
-
-        function drawPlanetIllustration(ctx, x, y, body, radius, invert, time = null) {
-            ctx.save();
-            ctx.translate(x, y);
-
-            // 1. Draw Rings (Back layer - Full Ring)
-            if (body === 'Saturn') {
-                ctx.beginPath();
-                ctx.ellipse(0, 0, radius * 2.2, radius * 0.8, Math.PI / 6, 0, 2 * Math.PI);
-                ctx.lineWidth = radius * 0.4;
-                ctx.strokeStyle = invert ? '#a8a29e' : '#d6d3d1';
-                ctx.stroke();
-            } else if (body === 'Uranus') {
-                ctx.beginPath();
-                ctx.ellipse(0, 0, radius * 1.8, radius * 0.3, Math.PI / 2.5, 0, 2 * Math.PI);
-                ctx.lineWidth = radius * 0.2;
-                ctx.strokeStyle = invert ? 'rgba(103, 232, 249, 0.5)' : 'rgba(165, 243, 252, 0.4)';
-                ctx.stroke();
-            }
-
-            // 2. Draw Sphere and Clip bounds
-            ctx.beginPath();
-            ctx.arc(0, 0, radius, 0, 2 * Math.PI);
-            
-            ctx.save();
-            ctx.clip(); // Ensure all details stay inside the planet circle
-
-            // Specific Planet Illustrations
-            if (body === 'Sun') {
-                const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, radius);
-                grad.addColorStop(0, '#ffffff');
-                grad.addColorStop(0.3, '#fef08a');
-                grad.addColorStop(1, '#f59e0b');
-                ctx.fillStyle = grad;
-                ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
-            } else if (body === 'Moon') {
-                if (time && typeof Astro !== 'undefined') {
-                    const dummyObs = new Astro.Observer(0, 0, 0);
-                    const sunEq = Astro.Equator('Sun', time, dummyObs, true, true);
-                    const moonEq = Astro.Equator('Moon', time, dummyObs, true, true);
-                    const sunEcl = Astro.Ecliptic(sunEq.vec);
-                    const moonEcl = Astro.Ecliptic(moonEq.vec);
-                    
-                    let phaseAngle = (moonEcl.elon - sunEcl.elon) % 360;
-                    if (phaseAngle < 0) phaseAngle += 360;
-
-                    const isWaxing = phaseAngle <= 180;
-                    const cosPh = Math.cos(phaseAngle * Math.PI / 180);
-                    const rx = Math.abs(radius * cosPh);
-
-                    // Dark background (shadowed part of the moon)
-                    ctx.fillStyle = invert ? '#94a3b8' : '#374151';
-                    ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
-
-                    // Bright illuminated part
-                    ctx.fillStyle = invert ? '#f59e0b' : '#FDE047';
-                    ctx.beginPath();
-                    ctx.moveTo(0, -radius);
-                    
-                    // Outer bright arc
-                    if (isWaxing) {
-                        ctx.arc(0, 0, radius, -Math.PI/2, Math.PI/2, false); 
-                    } else {
-                        ctx.arc(0, 0, radius, -Math.PI/2, Math.PI/2, true);
-                    }
-
-                    // Inner terminator ellipse
-                    let ccw;
-                    if (isWaxing) {
-                        ccw = phaseAngle <= 90;
-                    } else {
-                        ccw = phaseAngle <= 270;
-                    }
-                    
-                    ctx.ellipse(0, 0, rx, radius, 0, Math.PI/2, -Math.PI/2, ccw);
-                    ctx.fill();
-                } else {
-                    ctx.fillStyle = invert ? '#94a3b8' : '#e2e8f0';
-                    ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
-                }
-            } else if (body === 'Mercury') {
-                ctx.fillStyle = '#a8a29e'; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
-            } else if (body === 'Venus') {
-                ctx.fillStyle = '#fde047'; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
-                ctx.fillStyle = 'rgba(217, 119, 6, 0.2)'; 
-                ctx.fillRect(-radius, -radius*0.2, radius*2, radius*0.4);
-            } else if (body === 'Earth') {
-                ctx.fillStyle = '#3b82f6'; ctx.fillRect(-radius, -radius, radius * 2, radius * 2); 
-                ctx.fillStyle = '#22c55e'; 
-                ctx.beginPath(); ctx.arc(-radius*0.2, -radius*0.1, radius*0.6, 0, 2*Math.PI); ctx.fill();
-                ctx.beginPath(); ctx.arc(radius*0.4, radius*0.4, radius*0.4, 0, 2*Math.PI); ctx.fill();
-            } else if (body === 'Mars') {
-                ctx.fillStyle = '#ef4444'; ctx.fillRect(-radius, -radius, radius * 2, radius * 2); 
-                ctx.fillStyle = '#ffffff'; 
-                ctx.beginPath(); ctx.arc(0, -radius*0.9, radius*0.4, 0, 2*Math.PI); ctx.fill();
-            } else if (body === 'Jupiter') {
-                ctx.fillStyle = '#f3ceaa'; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
-                ctx.fillStyle = '#c88c64'; 
-                ctx.fillRect(-radius, -radius*0.4, radius*2, radius*0.3);
-                ctx.fillRect(-radius, radius*0.2, radius*2, radius*0.2);
-                ctx.fillStyle = '#a66a41'; 
-                ctx.beginPath(); ctx.ellipse(-radius*0.3, -radius*0.25, radius*0.2, radius*0.1, 0, 0, 2*Math.PI); ctx.fill();
-            } else if (body === 'Saturn') {
-                ctx.fillStyle = '#fde68a'; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
-                ctx.fillStyle = '#d97706'; 
-                ctx.fillRect(-radius, -radius*0.2, radius*2, radius*0.2);
-            } else if (body === 'Uranus') {
-                ctx.fillStyle = '#67e8f9'; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
-            } else if (body === 'Neptune') {
-                ctx.fillStyle = '#3b82f6'; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
-                ctx.fillStyle = '#1e40af'; 
-                ctx.beginPath(); ctx.ellipse(radius*0.2, radius*0.1, radius*0.3, radius*0.15, 0, 0, 2*Math.PI); ctx.fill();
-            } else if (body === 'Pluto') {
-                ctx.fillStyle = '#e5e7eb'; ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
-                ctx.fillStyle = '#d1d5db'; 
-                ctx.beginPath(); ctx.arc(-radius*0.2, radius*0.2, radius*0.4, 0, 2*Math.PI); ctx.fill();
-            } else {
-                ctx.fillStyle = typeof getPlanetColor !== 'undefined' ? getPlanetColor(body) : '#ffffff';
-                ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
-            }
-            
-            ctx.restore(); 
-
-            ctx.lineWidth = 1;
-            ctx.strokeStyle = invert ? 'rgba(255, 255, 255, 0.4)' : 'rgba(0, 0, 0, 0.4)';
-            ctx.stroke();
-
-            // 3. Draw Rings (Front layer)
-            if (body === 'Saturn') {
-                ctx.beginPath();
-                ctx.ellipse(0, 0, radius * 2.2, radius * 0.8, Math.PI / 6, 0, Math.PI); 
-                ctx.lineWidth = radius * 0.4;
-                ctx.strokeStyle = invert ? '#a8a29e' : '#d6d3d1';
-                ctx.stroke();
-            } else if (body === 'Uranus') {
-                ctx.beginPath();
-                ctx.ellipse(0, 0, radius * 1.8, radius * 0.3, Math.PI / 2.5, 0, Math.PI); 
-                ctx.lineWidth = radius * 0.2;
-                ctx.strokeStyle = invert ? 'rgba(103, 232, 249, 0.5)' : 'rgba(165, 243, 252, 0.4)';
-                ctx.stroke();
-            }
-
-            ctx.restore(); 
         }
 
         function drawSkyChart(time, obs, invert) {
@@ -2402,97 +2256,67 @@
             ctx.clip();
 
             const asterisms = [
-                // Aries
+                // Star patterns (Aries, Taurus, Gemini, etc.)
                 [{ra: 2.66, dec: 26.66}, {ra: 2.12, dec: 23.46}, {ra: 1.91, dec: 20.8}, {ra: 1.89, dec: 19.29}],
-                // Taurus 
                 [{ra: 4.47, dec: 19.18}, {ra: 4.33, dec: 15.63}, {ra: 4.47, dec: 15.96}, {ra: 4.59, dec: 16.51}], 
                 [{ra: 4.47, dec: 19.18}, {ra: 5.43, dec: 28.6}], 
                 [{ra: 4.59, dec: 16.51}, {ra: 5.63, dec: 21.14}], 
-                // Gemini 
                 [{ra: 7.58, dec: 31.88}, {ra: 7.33, dec: 27.8}, {ra: 6.72, dec: 25.13}, {ra: 6.37, dec: 22.51}, {ra: 6.25, dec: 22.5}], 
                 [{ra: 7.75, dec: 28.02}, {ra: 7.6, dec: 26.9}, {ra: 7.34, dec: 21.97}, {ra: 7.07, dec: 20.57}, {ra: 6.63, dec: 16.4}, {ra: 6.75, dec: 12.89}], 
                 [{ra: 7.58, dec: 31.88}, {ra: 7.75, dec: 28.02}], 
                 [{ra: 7.34, dec: 21.97}, {ra: 6.72, dec: 25.13}], 
-                // Cancer 
                 [{ra: 8.72, dec: 21.47}, {ra: 8.74, dec: 18.15}, {ra: 8.98, dec: 11.86}], 
                 [{ra: 8.74, dec: 18.15}, {ra: 8.27, dec: 9.18}], 
-                // Leo 
                 [{ra: 9.88, dec: 26.01}, {ra: 10.28, dec: 23.42}, {ra: 10.33, dec: 19.84}, {ra: 10.12, dec: 16.76}, {ra: 10.14, dec: 11.97}], 
                 [{ra: 10.14, dec: 11.97}, {ra: 11.23, dec: 15.43}, {ra: 11.82, dec: 14.57}, {ra: 11.23, dec: 20.52}, {ra: 10.33, dec: 19.84}], 
-                // Virgo 
                 [{ra: 11.84, dec: -1.76}, {ra: 12.33, dec: -0.67}, {ra: 12.69, dec: -1.45}, {ra: 12.92, dec: 3.4}, {ra: 13.04, dec: 10.96}], 
                 [{ra: 12.69, dec: -1.45}, {ra: 13.42, dec: -11.16}, {ra: 14.1, dec: -5.9}], 
                 [{ra: 13.42, dec: -11.16}, {ra: 13.58, dec: -0.66}], 
-                // Libra 
                 [{ra: 14.85, dec: -16.04}, {ra: 15.28, dec: -9.38}, {ra: 15.58, dec: -14.79}, {ra: 15.07, dec: -25.26}, {ra: 14.85, dec: -16.04}], 
                 [{ra: 15.58, dec: -14.79}, {ra: 15.64, dec: -29.77}], 
-                // Scorpius 
                 [{ra: 15.9, dec: -22.62}, {ra: 16.08, dec: -19.8}], 
                 [{ra: 15.9, dec: -22.62}, {ra: 15.98, dec: -26.11}], 
                 [{ra: 15.9, dec: -22.62}, {ra: 16.35, dec: -25.59}, {ra: 16.49, dec: -26.43}, {ra: 16.6, dec: -28.21}, {ra: 16.84, dec: -34.29}, {ra: 16.86, dec: -38.02}, {ra: 16.9, dec: -42.36}, {ra: 17.2, dec: -43.24}, {ra: 17.62, dec: -42.99}, {ra: 17.8, dec: -40.12}, {ra: 17.7, dec: -39.03}, {ra: 17.56, dec: -37.1}, {ra: 17.51, dec: -37.3}], 
-                // Sagittarius 
                 [{ra: 18.9, dec: -26.3}, {ra: 18.75, dec: -26.99}, {ra: 18.46, dec: -25.42}, {ra: 18.34, dec: -29.83}, {ra: 18.4, dec: -34.38}, {ra: 19.04, dec: -29.88}, {ra: 18.9, dec: -26.3}], 
                 [{ra: 19.04, dec: -29.88}, {ra: 19.11, dec: -27.67}, {ra: 18.9, dec: -26.3}], 
                 [{ra: 18.46, dec: -25.42}, {ra: 18.09, dec: -30.42}, {ra: 18.34, dec: -29.83}], 
-                // Capricornus 
                 [{ra: 20.3, dec: -12.5}, {ra: 20.35, dec: -14.78}, {ra: 20.77, dec: -25.27}, {ra: 20.86, dec: -26.91}, {ra: 21.44, dec: -22.41}, {ra: 21.78, dec: -16.1}, {ra: 21.67, dec: -16.66}, {ra: 21.09, dec: -17.23}, {ra: 20.3, dec: -12.5}], 
-                // Aquarius 
                 [{ra: 22.36, dec: -1.38}, {ra: 22.48, dec: -0.02}, {ra: 22.58, dec: -0.12}, {ra: 22.42, dec: 1.38}, {ra: 22.36, dec: -1.38}], 
                 [{ra: 22.36, dec: -1.38}, {ra: 22.1, dec: -0.3}, {ra: 21.52, dec: -5.58}], 
                 [{ra: 22.42, dec: 1.38}, {ra: 22.82, dec: -13.59}, {ra: 22.9, dec: -15.82}, {ra: 23.23, dec: -9.23}], 
-                // Pisces 
                 [{ra: 23.28, dec: 3.28}, {ra: 23.46, dec: 6.38}, {ra: 23.66, dec: 5.62}, {ra: 23.99, dec: 6.86}, {ra: 23.7, dec: 1.54}, {ra: 23.28, dec: 3.28}], 
                 [{ra: 23.99, dec: 6.86}, {ra: 0.8, dec: 7.59}, {ra: 1.23, dec: 7.58}, {ra: 1.69, dec: 5.49}, {ra: 2.03, dec: 2.76}], 
                 [{ra: 2.03, dec: 2.76}, {ra: 1.75, dec: 9.15}, {ra: 1.52, dec: 15.34}], 
                 [{ra: 1.52, dec: 15.34}, {ra: 1.23, dec: 24.58}, {ra: 1.32, dec: 27.26}, {ra: 1.19, dec: 30.0}, {ra: 1.52, dec: 15.34}],
-                
-                // Ursa Major
                 [{ra: 13.79, dec: 49.31}, {ra: 13.39, dec: 54.92}, {ra: 12.9, dec: 55.95}, {ra: 12.25, dec: 57.03}], 
                 [{ra: 12.25, dec: 57.03}, {ra: 11.89, dec: 53.69}, {ra: 10.98, dec: 56.38}, {ra: 11.06, dec: 61.75}, {ra: 12.25, dec: 57.03}],
-                // Ursa Minor
                 [{ra: 2.53, dec: 89.26}, {ra: 17.53, dec: 86.58}, {ra: 15.75, dec: 77.79}, {ra: 14.84, dec: 74.15}],
                 [{ra: 14.84, dec: 74.15}, {ra: 15.35, dec: 71.83}, {ra: 16.39, dec: 75.76}, {ra: 15.75, dec: 77.79}],
-                // Cassiopeia
                 [{ra: 0.15, dec: 59.15}, {ra: 0.67, dec: 56.53}, {ra: 0.94, dec: 60.71}, {ra: 1.43, dec: 60.23}, {ra: 1.9, dec: 63.67}],
-                // Orion
                 [{ra: 5.91, dec: 7.4}, {ra: 5.41, dec: 6.34}, {ra: 5.24, dec: -8.2}, {ra: 5.79, dec: -9.67}, {ra: 5.91, dec: 7.4}],
                 [{ra: 5.53, dec: -0.3}, {ra: 5.6, dec: -1.2}, {ra: 5.68, dec: -1.93}],
-                // Cygnus
                 [{ra: 20.69, dec: 45.28}, {ra: 20.37, dec: 40.25}, {ra: 19.51, dec: 27.96}],
                 [{ra: 19.75, dec: 45.13}, {ra: 20.37, dec: 40.25}, {ra: 21.21, dec: 34.88}],
-                // Lyra
                 [{ra: 18.61, dec: 38.78}, {ra: 18.97, dec: 33.36}, {ra: 18.83, dec: 32.68}, {ra: 19.26, dec: 27.76}, {ra: 18.97, dec: 33.36}],
-                // Aquila
                 [{ra: 19.84, dec: 8.87}, {ra: 19.76, dec: 10.61}, {ra: 19.09, dec: 13.88}],
-                // Canis Major
                 [{ra: 6.75, dec: -16.71}, {ra: 6.37, dec: -30.06}, {ra: 6.9, dec: -28.9}, {ra: 7.4, dec: -29.3}, {ra: 7.14, dec: -26.39}, {ra: 6.75, dec: -16.71}],
-                // Pegasus
                 [{ra: 23.07, dec: 28.08}, {ra: 23.06, dec: 15.2}, {ra: 0.22, dec: 15.18}, {ra: 0.14, dec: 29.09}, {ra: 23.07, dec: 28.08}],
                 [{ra: 23.07, dec: 28.08}, {ra: 22.69, dec: 30.22}, {ra: 21.74, dec: 9.88}],
-                // Crux
                 [{ra: 12.52, dec: -57.11}, {ra: 12.44, dec: -63.1}],
                 [{ra: 12.79, dec: -59.68}, {ra: 12.25, dec: -58.75}],
-                // Andromeda
                 [{ra: 0.14, dec: 29.09}, {ra: 1.16, dec: 35.62}, {ra: 1.66, dec: 42.33}, {ra: 2.06, dec: 42.33}],
                 [{ra: 1.16, dec: 35.62}, {ra: 1.2, dec: 47.0}],
-                // Perseus
                 [{ra: 3.4, dec: 49.86}, {ra: 3.08, dec: 38.84}, {ra: 3.9, dec: 40.0}], 
                 [{ra: 3.08, dec: 38.84}, {ra: 2.06, dec: 42.33}],
-                // Auriga
                 [{ra: 5.28, dec: 45.99}, {ra: 5.99, dec: 44.94}, {ra: 5.99, dec: 37.21}, {ra: 5.43, dec: 28.6}, {ra: 4.95, dec: 33.16}, {ra: 5.28, dec: 45.99}],
-                // Bootes
                 [{ra: 14.26, dec: 19.18}, {ra: 14.75, dec: 27.07}, {ra: 15.26, dec: 33.31}, {ra: 15.03, dec: 40.39}, {ra: 14.54, dec: 38.3}, {ra: 14.27, dec: 30.37}, {ra: 14.26, dec: 19.18}],
                 [{ra: 14.26, dec: 19.18}, {ra: 13.91, dec: 18.4}],
-                // Hercules
                 [{ra: 16.7, dec: 31.6}, {ra: 16.4, dec: 36.8}, {ra: 17.25, dec: 36.8}, {ra: 17.25, dec: 31.6}, {ra: 16.7, dec: 31.6}],
                 [{ra: 16.4, dec: 36.8}, {ra: 16.5, dec: 42.4}], [{ra: 17.25, dec: 36.8}, {ra: 17.9, dec: 37.9}],
                 [{ra: 16.7, dec: 31.6}, {ra: 16.1, dec: 25.0}], [{ra: 17.25, dec: 31.6}, {ra: 17.25, dec: 24.9}],
-                // Cepheus
                 [{ra: 21.31, dec: 62.58}, {ra: 22.06, dec: 64.63}, {ra: 22.69, dec: 58.2}, {ra: 21.48, dec: 56.88}, {ra: 21.31, dec: 62.58}],
                 [{ra: 21.31, dec: 62.58}, {ra: 23.66, dec: 77.63}, {ra: 22.06, dec: 64.63}],
-                // Corona Borealis
                 [{ra: 15.46, dec: 26.71}, {ra: 15.58, dec: 26.71}, {ra: 15.71, dec: 26.6}, {ra: 15.9, dec: 26.71}, {ra: 16.24, dec: 29.1}],
-                // Centaurus
                 [{ra: 14.66, dec: -60.83}, {ra: 14.06, dec: -60.37}, {ra: 14.38, dec: -47.29}, {ra: 14.0, dec: -36.37}],
                 [{ra: 14.38, dec: -47.29}, {ra: 13.34, dec: -49.88}, {ra: 12.26, dec: -50.43}]
             ];
@@ -2506,9 +2330,9 @@
                     const x1 = cx - r1 * Math.sin(hor1.azimuth * Math.PI / 180);
                     const y1 = cy - r1 * Math.cos(hor1.azimuth * Math.PI / 180);
                     
-                    const r2 = rMax * ((90 - hor1.altitude) / 90);
-                    const x2 = cx - r2 * Math.sin(hor1.azimuth * Math.PI / 180);
-                    const y2 = cy - r2 * Math.cos(hor1.azimuth * Math.PI / 180);
+                    const r2 = rMax * ((90 - hor2.altitude) / 90);
+                    const x2 = cx - r2 * Math.sin(hor2.azimuth * Math.PI / 180);
+                    const y2 = cy - r2 * Math.cos(hor2.azimuth * Math.PI / 180);
                     
                     ctx.beginPath();
                     ctx.moveTo(x1, y1);
@@ -2588,15 +2412,9 @@
             ];
 
             const zodiacs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpius", "Sagittarius", "Capricornus", "Aquarius", "Pisces"];
-
-            const alwaysVisible = [
-                ...zodiacs,
-                "Ursa Major", "Ursa Minor", "Orion", "Cassiopeia", "Crux", "Cygnus", 
-                "Lyra", "Aquila", "Canis Major", "Pegasus", "Centaurus", "Bootes", "Carina"
-            ];
+            const alwaysVisible = [...zodiacs, "Ursa Major", "Ursa Minor", "Orion", "Cassiopeia", "Crux", "Cygnus", "Lyra", "Aquila", "Canis Major", "Pegasus", "Centaurus", "Bootes", "Carina"];
 
             const bodies = ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Pluto'];
-            
             const activePlanets = [];
             bodies.forEach(body => {
                 const eq = Astro.Equator(body, time, obs, true, true);
@@ -2621,7 +2439,6 @@
                 if (hor.altitude > 0) { 
                     const r = rMax * ((90 - hor.altitude) / 90);
                     const azRad = hor.azimuth * Math.PI / 180;
-                    
                     const x = cx - r * Math.sin(azRad);
                     const y = cy - r * Math.cos(azRad);
                     
@@ -2635,17 +2452,12 @@
                         }
                     }
 
-                    const isAlwaysVisible = alwaysVisible.includes(c.name);
-                    
-                    if (window.skyZoom < 1.4 && (!isAlwaysVisible || isClashing)) return;
+                    if (window.skyZoom < 1.4 && (!alwaysVisible.includes(c.name) || isClashing)) return;
 
                     const isZodiac = zodiacs.includes(c.name);
-
                     ctx.beginPath();
                     ctx.arc(x, y, isZodiac ? 2 : 1.5, 0, 2*Math.PI);
-                    ctx.fillStyle = isZodiac 
-                        ? (invert ? 'rgba(217, 119, 6, 0.8)' : 'rgba(251, 191, 36, 0.8)')
-                        : (invert ? 'rgba(100, 116, 139, 0.4)' : 'rgba(148, 163, 184, 0.4)');
+                    ctx.fillStyle = isZodiac ? (invert ? 'rgba(217, 119, 6, 0.8)' : 'rgba(251, 191, 36, 0.8)') : (invert ? 'rgba(100, 116, 139, 0.4)' : 'rgba(148, 163, 184, 0.4)');
                     ctx.fill();
                     
                     ctx.fillStyle = invert ? 'rgba(71, 85, 105, 0.8)' : 'rgba(148, 163, 184, 0.8)'; 
@@ -2657,37 +2469,28 @@
 
             activePlanets.forEach(p => {
                 const isSun = p.body === 'Sun';
-
-                if (isSun) {
-                    ctx.shadowBlur = 15;
-                    ctx.shadowColor = '#f59e0b';
-                }
-
+                if (isSun) { ctx.shadowBlur = 15; ctx.shadowColor = '#f59e0b'; }
                 drawPlanetIllustration(ctx, p.x, p.y, p.body, p.rPlanet, invert, time, false);
-                
                 ctx.shadowBlur = 0; 
-                
-                ctx.font = 'bold 11px sans-serif';
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'middle';
-                
-                ctx.lineWidth = 2.5;
-                ctx.strokeStyle = invert ? '#f8fafc' : '#0f172a';
+                ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+                ctx.lineWidth = 2.5; ctx.strokeStyle = invert ? '#f8fafc' : '#0f172a';
                 ctx.strokeText(p.body, p.x + p.rPlanet + 4, p.y);
-                
                 ctx.fillStyle = invert ? '#1e293b' : '#f8fafc';
                 if (isSun) ctx.fillStyle = invert ? '#b45309' : '#fbbf24';
                 ctx.fillText(p.body, p.x + p.rPlanet + 4, p.y);
             });
-            // --- ADD COMPASS MARKER FOR MOBILE ---
+
+            // --- REVISED COMPASS MARKER FOR MOBILE (CAMERA FOCUS) ---
             if (deviceAzimuth !== null && deviceAltitude !== null && deviceAltitude > -10) {
+                // Calculation based on camera pointing at the sky
                 const rComp = rMax * ((90 - deviceAltitude) / 90);
                 const azRadComp = deviceAzimuth * Math.PI / 180;
+                
+                // Map to "Looking Up" canvas coordinates
                 const xComp = cx - rComp * Math.sin(azRadComp);
                 const yComp = cy - rComp * Math.cos(azRadComp);
 
-                // Draw a targeting reticle
-                ctx.strokeStyle = '#ef4444'; // Red color
+                ctx.strokeStyle = '#ef4444'; // Bright Red
                 ctx.lineWidth = 2;
                 
                 // Outer circle
@@ -2704,7 +2507,7 @@
                 // Label
                 ctx.fillStyle = '#ef4444';
                 ctx.font = 'bold 10px sans-serif';
-                ctx.fillText("DEVICE POINTING", xComp, yComp - 25);
+                ctx.fillText("CAMERA POINTING", xComp, yComp - 25);
             }
             ctx.restore();
         }
@@ -2759,14 +2562,9 @@
 
                 drawPlanetIllustration(ctx, x, y, body, pRadius, invert, time, true);
                 
-                ctx.font = 'bold 10px sans-serif';
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'middle';
-                
-                ctx.lineWidth = 2.5;
-                ctx.strokeStyle = invert ? '#f8fafc' : '#0f172a';
+                ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+                ctx.lineWidth = 2.5; ctx.strokeStyle = invert ? '#f8fafc' : '#0f172a';
                 ctx.strokeText(body, x + pRadius + 4, y);
-                
                 ctx.fillStyle = invert ? '#1e293b' : '#f8fafc';
                 ctx.fillText(body, x + pRadius + 4, y);
             });
@@ -2782,10 +2580,7 @@
 
             canvas.addEventListener('touchstart', (e) => {
                 if (e.touches.length === 2) {
-                    initialPinchDist = Math.hypot(
-                        e.touches[0].clientX - e.touches[1].clientX,
-                        e.touches[0].clientY - e.touches[1].clientY
-                    );
+                    initialPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
                     initialZoom = window[zoomKey] || 1;
                     isDragging = false; 
                 } else if (e.touches.length === 1 && (window[zoomKey] || 1) > 1) {
@@ -2797,35 +2592,21 @@
 
             canvas.addEventListener('touchmove', (e) => {
                 if (e.touches.length === 2) {
-                    e.preventDefault(); // Stop page scrolling
-                    const dist = Math.hypot(
-                        e.touches[0].clientX - e.touches[1].clientX,
-                        e.touches[0].clientY - e.touches[1].clientY
-                    );
-                    
+                    e.preventDefault();
+                    const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
                     window[zoomKey] = Math.max(1, Math.min(initialZoom * (dist / initialPinchDist), maxZoom));
-                    
-                    if (window[zoomKey] === 1) {
-                        window[panXKey] = 0;
-                        window[panYKey] = 0;
-                    }
-                    
+                    if (window[zoomKey] === 1) { window[panXKey] = 0; window[panYKey] = 0; }
                     if (typeof redrawCallback === 'function') redrawCallback();
                 } else if (e.touches.length === 1 && isDragging && (window[zoomKey] || 1) > 1) {
                     e.preventDefault(); 
                     window[panXKey] = (window[panXKey] || 0) + (e.touches[0].clientX - lastX);
                     window[panYKey] = (window[panYKey] || 0) + (e.touches[0].clientY - lastY);
-                    
-                    lastX = e.touches[0].clientX;
-                    lastY = e.touches[0].clientY;
-                    
+                    lastX = e.touches[0].clientX; lastY = e.touches[0].clientY;
                     if (typeof redrawCallback === 'function') redrawCallback();
                 }
             }, { passive: false });
 
-            canvas.addEventListener('touchend', () => {
-                isDragging = false;
-            });
+            canvas.addEventListener('touchend', () => { isDragging = false; });
         };
 
         document.addEventListener('DOMContentLoaded', () => {
@@ -2842,14 +2623,10 @@
             document.getElementById('btn-view-skymap').addEventListener('click', () => {
                 document.getElementById('event-modal').classList.add('hidden');
                 document.getElementById('planet-modal').classList.add('hidden');
-                
                 const rtCheck = document.getElementById('realtime-checkbox');
                 if (rtCheck.checked) rtCheck.click();
-
-                // Shift event UTC time to Local formatting for the standard input
                 const offsetMs = window.currentEventTime.getTimezoneOffset() * 60000;
                 dateTimeInput.value = (new Date(window.currentEventTime - offsetMs)).toISOString().slice(0, 16);
-                
                 runAllCalculations();
                 document.getElementById('charts-modal').classList.remove('hidden');
                 updateCharts();
