@@ -2613,7 +2613,7 @@
                 if (e.touches.length === 2) {
                     e.preventDefault();
                     const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
-                    window[zoomKey] = Math.max(1, Math.min(initialZoom * (dist / initialPinchDist), maxZoom));
+                    window[zoomKey] = Math.max(0.1, Math.min(initialZoom * (dist / initialPinchDist), maxZoom));
                     if (window[zoomKey] === 1) { window[panXKey] = 0; window[panYKey] = 0; }
                     if (typeof redrawCallback === 'function') redrawCallback();
                 } else if (e.touches.length === 1 && isDragging && (window[zoomKey] || 1) > 1) {
