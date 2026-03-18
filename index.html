@@ -786,7 +786,7 @@
 
         // Sky Mouse Drag Events
         skyCanvas.addEventListener('mousedown', (e) => {
-            if (window.skyZoom > 1) {
+            if (window.skyZoom > 0.01) {
                 isDraggingSky = true;
                 lastSkyX = e.clientX;
                 lastSkyY = e.clientY;
@@ -802,7 +802,7 @@
         });
 
         window.addEventListener('mousemove', (e) => {
-            if (isDraggingSky && window.skyZoom > 1) {
+            if (isDraggingSky && window.skyZoom > 0.01) {
                 const dx = e.clientX - lastSkyX;
                 const dy = e.clientY - lastSkyY;
                 window.skyPanX += dx;
@@ -824,7 +824,7 @@
 
         // Sky Touch Drag Events (Mobile)
         skyCanvas.addEventListener('touchstart', (e) => {
-            if (window.skyZoom > 1 && e.touches.length === 1) {
+            if (window.skyZoom > 0.01 && e.touches.length === 1) {
                 isDraggingSky = true;
                 lastSkyX = e.touches[0].clientX;
                 lastSkyY = e.touches[0].clientY;
@@ -837,7 +837,7 @@
         });
 
         skyCanvas.addEventListener('touchmove', (e) => {
-            if (isDraggingSky && window.skyZoom > 1 && e.touches.length === 1) {
+            if (isDraggingSky && window.skyZoom > 0.01 && e.touches.length === 1) {
                 e.preventDefault(); // Prevent page scrolling while panning canvas
                 const dx = e.touches[0].clientX - lastSkyX;
                 const dy = e.touches[0].clientY - lastSkyY;
@@ -873,7 +873,7 @@
 
         // SS Mouse Drag Events
         ssCanvas.addEventListener('mousedown', (e) => {
-            if (window.ssZoom > 1) {
+            if (window.ssZoom > 0.01) {
                 isDraggingSS = true;
                 lastSsX = e.clientX;
                 lastSsY = e.clientY;
@@ -883,7 +883,7 @@
 
         // SS Touch Drag Events (Mobile)
         ssCanvas.addEventListener('touchstart', (e) => {
-            if (window.ssZoom > 1 && e.touches.length === 1) {
+            if (window.ssZoom > 0.01 && e.touches.length === 1) {
                 isDraggingSS = true;
                 lastSsX = e.touches[0].clientX;
                 lastSsY = e.touches[0].clientY;
@@ -891,7 +891,7 @@
         }, { passive: false });
 
         ssCanvas.addEventListener('touchmove', (e) => {
-            if (isDraggingSS && window.ssZoom > 1 && e.touches.length === 1) {
+            if (isDraggingSS && window.ssZoom > 0.01 && e.touches.length === 1) {
                 e.preventDefault(); 
                 const dx = e.touches[0].clientX - lastSsX;
                 const dy = e.touches[0].clientY - lastSsY;
