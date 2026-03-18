@@ -742,17 +742,19 @@
 
         // Listen for device orientation (Optimized for Android Chrome)
         window.addEventListener('deviceorientationabsolute', (e) => {
-            // alpha is compass heading (0 = North)
-            // beta is rotation around X axis (0 = screen flat up, 90 = vertical, 180 = screen flat down)
-            if (e.alpha !== null && e.beta !== null) {
-                // If we want to point the CAMERA (back of phone) at the sky:
-                // When beta = 90, phone is vertical, camera at horizon (Alt 0).
-                // When beta = 180, camera is pointing at Zenith (Alt 90).
-                // When beta = 0, camera is pointing at ground (Alt -90).
-                deviceAltitude = e.beta - 90; 
+            if (e.alpha !== null && e.beta !== null && e.gamma !== null) {
+                // For Android pointing back of phone (camera) at sky:
+                // Portrait held vertical looking at horizon: beta = 90
+                // Tilted back to point camera at Zenith: beta = 180
+                // Tilted forward to point camera at ground: beta = 0
+                
+                deviceAltitude = e.beta - 90;
+                
+                // For Azimuth: When phone is vertical (portrait), alpha is the heading.
+                // When tilted flat-up (towards Zenith), alpha remains consistent.
                 deviceAzimuth = e.alpha; 
                 
-                // Only trigger redraw if the charts modal is open
+                // Trigger redraw if the modal is visible
                 if (!document.getElementById('charts-modal').classList.contains('hidden')) {
                     updateCharts();
                 }
@@ -2480,17 +2482,22 @@
                 ctx.fillText(p.body, p.x + p.rPlanet + 4, p.y);
             });
 
-            // --- REVISED COMPASS MARKER FOR MOBILE (CAMERA FOCUS) ---
+            // --- COMPASS MARKER FOR MOBILE (REFINED POINTING LOGIC) ---
             if (deviceAzimuth !== null && deviceAltitude !== null && deviceAltitude > -10) {
-                // Calculation based on camera pointing at the sky
+                // Calculation based on "Looking Up" chart coordinate system:
+                // North (Az 0) is at the top.
+                // East (Az 90) is on the left.
+                // West (Az 270) is on the right.
+                
                 const rComp = rMax * ((90 - deviceAltitude) / 90);
                 const azRadComp = deviceAzimuth * Math.PI / 180;
                 
-                // Map to "Looking Up" canvas coordinates
+                // We use sin for X because 90 deg (East) should shift left (-X) 
+                // and cos for Y because 0 deg (North) should shift up (-Y)
                 const xComp = cx - rComp * Math.sin(azRadComp);
                 const yComp = cy - rComp * Math.cos(azRadComp);
 
-                ctx.strokeStyle = '#ef4444'; // Bright Red
+                ctx.strokeStyle = '#ef4444'; // Red targeting reticle
                 ctx.lineWidth = 2;
                 
                 // Outer circle
@@ -2498,16 +2505,17 @@
                 ctx.arc(xComp, yComp, 15, 0, 2 * Math.PI);
                 ctx.stroke();
 
-                // Crosshair
+                // Crosshair lines
                 ctx.beginPath();
                 ctx.moveTo(xComp - 20, yComp); ctx.lineTo(xComp + 20, yComp);
                 ctx.moveTo(xComp, yComp - 20); ctx.lineTo(xComp, yComp + 20);
                 ctx.stroke();
 
-                // Label
+                // Marker Label
                 ctx.fillStyle = '#ef4444';
                 ctx.font = 'bold 10px sans-serif';
-                ctx.fillText("CAMERA POINTING", xComp, yComp - 25);
+                ctx.textAlign = 'center';
+                ctx.fillText("DEVICE POINTING", xComp, yComp - 25);
             }
             ctx.restore();
         }
