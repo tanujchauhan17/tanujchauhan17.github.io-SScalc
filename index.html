@@ -1627,6 +1627,13 @@
                 if (tracking && s1 > 300 && s2 < 30) { cache.panchak.upcoming.push({ label: 'Ends', d: exactPanchakTime(d1, d2, false) }); tracking = false; if (cache.panchak.upcoming.length >= 20) break; }
             }
             
+            // Add computed Panchak periods to the main events list
+            cache.panchak.upcoming.forEach(p => {
+                cache.events.push({ name: `Panchak ${p.label}`, date: p.d, type: 'Panchak' });
+            });
+            // Re-sort the events array
+            cache.events.sort((a,b) => a.date - b.date);
+
             cache.astrologyState = ['Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn'].map(p => {
                 let l1 = getGeocentricApparentLongitude(p, time.AddDays(-0.1));
                 let l2 = getGeocentricApparentLongitude(p, time.AddDays(0.1));
@@ -1771,6 +1778,7 @@
                 if(e.type === 'Transit') badge = `<span class="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded-full font-bold ml-2">TRANSIT</span>`;
                 if(e.type === 'Festival') badge = `<span class="bg-pink-100 text-pink-700 text-[10px] px-2 py-0.5 rounded-full font-bold ml-2">FESTIVAL</span>`;
                 if(e.type === 'Opposition') badge = `<span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full font-bold ml-2">OPPOSITION</span>`;
+                if(e.type === 'Panchak') badge = `<span class="bg-red-100 text-red-700 text-[10px] px-2 py-0.5 rounded-full font-bold ml-2">PANCHAK</span>`;
                 content += `<li class="list-item" onclick="handleEventClick(${i})">
                     <div class="flex justify-between items-center">
                         <span class="font-medium text-gray-800">${e.name} ${badge}</span>
@@ -1833,6 +1841,10 @@
                 illustration = `<div class="text-6xl my-4 drop-shadow-md">✨🪔</div>`;
                 extraInfo = `Traditional Hindu/Himachali Festival computed from current planetary positions.`;
                 visibilityHtml = `<span class="text-pink-600 bg-pink-50 px-3 py-1 rounded-full text-sm font-semibold border border-pink-200">Cultural Event</span>`;
+            } else if (e.type === 'Panchak') {
+                illustration = `<div class="text-6xl my-4 drop-shadow-md">⚠️🌙</div>`;
+                extraInfo = `Panchak is a period of approximately 5 days when the Moon transits the last five nakshatras (from the second half of Dhanishta to Revati). In Vedic astrology, certain auspicious activities are traditionally avoided during this transit.`;
+                visibilityHtml = `<span class="text-red-600 bg-red-50 px-3 py-1 rounded-full text-sm font-semibold border border-red-200">Astrological Period</span>`;
             } else if (e.type === 'Conjunction' || e.type === 'Occultation' || e.type === 'Transit') {
                 let sep = e.sep || 0;
                 illustration = `<canvas id="conjunction-canvas" width="800" height="800" class="w-full max-w-[300px] aspect-square mx-auto rounded-lg shadow-inner cursor-crosshair" style="background: #0f172a"></canvas>
