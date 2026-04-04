@@ -1516,23 +1516,53 @@
             let rawFestivals = [];
             let timeIter = new Astro.AstroTime(date);
             let fMq = Astro.SearchMoonQuarter(timeIter);
+            
+            // 1. Lunar Based Festivals
             for(let i=0; i<30; i++) { 
                 if (!fMq) break;
                 let qPhase = fMq.quarter;
                 let qTime = fMq.time;
                 let sunSid = getSiderealLongitude('Sun', qTime);
 
-                if (qPhase === 0) { 
+                if (qPhase === 0) { // Amavasya (New Moon)
                     if (sunSid >= 180 && sunSid < 210) rawFestivals.push({name: "Diwali (Amavasya)", date: qTime.date});
-                    if (sunSid >= 330 && sunSid < 360) rawFestivals.push({name: "Chaitra Navratri", date: new Date(qTime.date.getTime() + 1*MS_PER_DAY)});
-                    if (sunSid >= 150 && sunSid < 180) rawFestivals.push({name: "Sharad Navratri", date: new Date(qTime.date.getTime() + 1*MS_PER_DAY)});
-                    if (sunSid >= 300 && sunSid < 330) rawFestivals.push({name: "Maha Shivaratri", date: new Date(qTime.date.getTime() - 1*MS_PER_DAY)});
+                    if (sunSid >= 330 && sunSid < 360) {
+                         rawFestivals.push({name: "Chaitra Navratri Starts", date: new Date(qTime.date.getTime() + 1*MS_PER_DAY)});
+                         rawFestivals.push({name: "Ram Navami", date: new Date(qTime.date.getTime() + 9*MS_PER_DAY)});
+                    }
+                    if (sunSid >= 150 && sunSid < 180) {
+                         rawFestivals.push({name: "Sharad Navratri Starts", date: new Date(qTime.date.getTime() + 1*MS_PER_DAY)});
+                         rawFestivals.push({name: "Kullu Dussehra / Vijayadashami", date: new Date(qTime.date.getTime() + 10*MS_PER_DAY)});
+                    }
+                    if (sunSid >= 300 && sunSid < 330) rawFestivals.push({name: "Maha Shivaratri (Mandi Shivaratri)", date: new Date(qTime.date.getTime() - 1*MS_PER_DAY)});
                     if (sunSid >= 120 && sunSid < 150) rawFestivals.push({name: "Ganesh Chaturthi", date: new Date(qTime.date.getTime() + 4*MS_PER_DAY)});
-                } else if (qPhase === 2) { 
-                    if (sunSid >= 312 && sunSid < 345) rawFestivals.push({name: "Holi (Purnima)", date: qTime.date});
+                } else if (qPhase === 2) { // Purnima (Full Moon)
+                    if (sunSid >= 312 && sunSid < 345) rawFestivals.push({name: "Holi / Phagli (HP)", date: qTime.date});
                     if (sunSid >= 108 && sunSid < 140) rawFestivals.push({name: "Raksha Bandhan", date: qTime.date});
+                    if (sunSid >= 280 && sunSid < 310) rawFestivals.push({name: "Halda Festival (Lahaul)", date: qTime.date}); 
+                    if (sunSid >= 165 && sunSid < 195) rawFestivals.push({name: "Karwa Chauth", date: new Date(qTime.date.getTime() + 4*MS_PER_DAY)});
+                } else if (qPhase === 3) { // Last Quarter (~Ashtami Krishna Paksha)
+                    if (sunSid >= 120 && sunSid < 160) rawFestivals.push({name: "Krishna Janmashtami", date: qTime.date}); 
                 }
                 fMq = Astro.NextMoonQuarter(fMq);
+            }
+            
+            // 2. Solar Based Festivals (Sankrantis - Highly relevant to HP)
+            let tSun = new Astro.AstroTime(date);
+            for(let i=0; i<=400; i++) {
+                let t1 = tSun.AddDays(i);
+                let t2 = tSun.AddDays(i+1);
+                let s1 = getSiderealLongitude('Sun', t1);
+                let s2 = getSiderealLongitude('Sun', t2);
+                
+                // Mesha Sankranti
+                if (s1 > 350 && s2 < 10) rawFestivals.push({name: "Baisakhi (Mesha Sankranti)", date: t2.date});
+                // Karka Sankranti
+                if (s1 < 90 && s2 >= 90) rawFestivals.push({name: "Haryali / Sawan Sankranti", date: t2.date});
+                // Tula Sankranti
+                if (s1 < 180 && s2 >= 180) rawFestivals.push({name: "Sair Festival (Tula Sankranti)", date: t2.date});
+                // Makar Sankranti
+                if (s1 < 270 && s2 >= 270) rawFestivals.push({name: "Maghi / Makar Sankranti", date: t2.date});
             }
             
             cache.festivals = [];
