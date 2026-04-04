@@ -592,7 +592,7 @@
             horoscope: { ascendant: 0, planets: [] } 
         };
 
-        const LIMITS = { defaultPanchak: 4, defaultSolar: 4, defaultLunar: 4, defaultEvents: 8 };
+        const LIMITS = { defaultPanchak: 4, defaultSolar: 4, defaultLunar: 4, defaultEvents: 8, defaultFestivals: 8 };
         let currentLimits = { ...LIMITS };
         
         let currentConjunctions = [];
@@ -1416,6 +1416,30 @@
             return null;
         }
 
+        function findNextOpposition(planet, startTime) {
+            let t = startTime.AddDays(0);
+            let getL = (b, time) => pyMod(getGeocentricApparentLongitude(b, time), 360);
+            let getDiff = (time) => pyMod(getL(planet, time) - getL('Sun', time), 360) - 180;
+            let prevD = getDiff(t);
+            for (let i = 0; i < 1500; i++) { 
+                t = t.AddDays(2.0);
+                let d = getDiff(t);
+                if (prevD * d <= 0 && Math.abs(d) < 90) {
+                    let t_low = t.AddDays(-2.0);
+                    let t_high = t;
+                    for(let r=0; r<6; r++) { 
+                        let t_mid = t_low.AddDays((t_high.ut - t_low.ut)/2);
+                        let mD = getDiff(t_mid);
+                        if (prevD * mD <= 0) { t_high = t_mid; d = mD; }
+                        else { t_low = t_mid; prevD = mD; }
+                    }
+                    return t_high;
+                }
+                prevD = d;
+            }
+            return null;
+        }
+
         function calculateHeavyData(time, date) {
             cache.solarEclipses = [];
             let tS = new Astro.AstroTime(date);
@@ -1443,20 +1467,12 @@
             }
 
             cache.events = [];
-            let mq = Astro.SearchMoonQuarter(time);
-            for(let i=0; i<8; i++) {
-                cache.events.push({ name: MOON_PHASE_NAMES[mq.quarter * 2], date: mq.time.date, type: 'Phase' });
-                mq = Astro.NextMoonQuarter(mq);
-            }
             
-            let year = date.getUTCFullYear();
-            for(let y=year; y<=year+1; y++) {
-                let s = Astro.Seasons(y);
-                if (s.mar_equinox.date > date) cache.events.push({name: 'March Equinox', date: s.mar_equinox.date, type: 'Season'});
-                if (s.jun_solstice.date > date) cache.events.push({name: 'June Solstice', date: s.jun_solstice.date, type: 'Season'});
-                if (s.sep_equinox.date > date) cache.events.push({name: 'Sept Equinox', date: s.sep_equinox.date, type: 'Season'});
-                if (s.dec_solstice.date > date) cache.events.push({name: 'Dec Solstice', date: s.dec_solstice.date, type: 'Season'});
-            }
+            // Add Rare Planetary Oppositions
+            ['Mars', 'Jupiter', 'Saturn', 'Uranus'].forEach(p => {
+                let opp = findNextOpposition(p, new Astro.AstroTime(date));
+                if (opp) cache.events.push({ name: `${p} at Opposition`, date: opp.date, type: 'Opposition', planet: p });
+            });
             
             cache.solarEclipses.slice(0, 5).forEach(e => cache.events.push({name: 'Solar Eclipse', date: e.peak.date, type: 'Eclipse'}));
             cache.lunarEclipses.slice(0, 5).forEach(e => cache.events.push({name: 'Lunar Eclipse', date: e.peak.date, type: 'Eclipse'}));
@@ -1483,29 +1499,32 @@
                         if (isTransit && (nakedEyePlanets[i] === 'Moon' || nakedEyePlanets[j] === 'Moon')) {
                             // Don't push solar eclipses as transits here, handled dynamically by Eclipse finder
                         } else {
-                            let type = 'Conjunction';
-                            let name = `${nakedEyePlanets[i]} & ${nakedEyePlanets[j]} Conjunction`;
-                            
-                            if (isTransit) {
-                                type = 'Transit';
-                                let transiting = nakedEyePlanets[i] === 'Sun' ? nakedEyePlanets[j] : nakedEyePlanets[i];
-                                name = `${transiting} Transit`;
-                            } else if (isOccultation) {
-                                type = 'Occultation';
-                                if (nakedEyePlanets[i] === 'Moon' || nakedEyePlanets[j] === 'Moon') {
-                                    let occulted = nakedEyePlanets[i] === 'Moon' ? nakedEyePlanets[j] : nakedEyePlanets[i];
-                                    name = `Lunar Occultation of ${occulted}`;
-                                } else {
-                                    name = `${nakedEyePlanets[i]} Occults ${nakedEyePlanets[j]}`;
+                            // FILTER: Only push RARE/CLOSE conjunctions (separation <= 1.0 degree), transits, or occultations
+                            if (sep <= 1.0 || isOccultation || isTransit) {
+                                let type = 'Conjunction';
+                                let name = `${nakedEyePlanets[i]} & ${nakedEyePlanets[j]} Conjunction`;
+                                
+                                if (isTransit) {
+                                    type = 'Transit';
+                                    let transiting = nakedEyePlanets[i] === 'Sun' ? nakedEyePlanets[j] : nakedEyePlanets[i];
+                                    name = `${transiting} Transit`;
+                                } else if (isOccultation) {
+                                    type = 'Occultation';
+                                    if (nakedEyePlanets[i] === 'Moon' || nakedEyePlanets[j] === 'Moon') {
+                                        let occulted = nakedEyePlanets[i] === 'Moon' ? nakedEyePlanets[j] : nakedEyePlanets[i];
+                                        name = `Lunar Occultation of ${occulted}`;
+                                    } else {
+                                        name = `${nakedEyePlanets[i]} Occults ${nakedEyePlanets[j]}`;
+                                    }
                                 }
+                                
+                                cache.events.push({ 
+                                    name: name, 
+                                    date: conj.date, 
+                                    type: type, 
+                                    b1: nakedEyePlanets[i], b2: nakedEyePlanets[j], sep: sep 
+                                });
                             }
-                            
-                            cache.events.push({ 
-                                name: name, 
-                                date: conj.date, 
-                                type: type, 
-                                b1: nakedEyePlanets[i], b2: nakedEyePlanets[j], sep: sep 
-                            });
                         }
                     }
                 }
@@ -1517,8 +1536,8 @@
             let timeIter = new Astro.AstroTime(date);
             let fMq = Astro.SearchMoonQuarter(timeIter);
             
-            // 1. Lunar Based Festivals
-            for(let i=0; i<30; i++) { 
+            // 1. Lunar Based Festivals - Extended from 30 to 250 quarters (~5 years) so Show More works many times
+            for(let i=0; i<250; i++) { 
                 if (!fMq) break;
                 let qPhase = fMq.quarter;
                 let qTime = fMq.time;
@@ -1547,9 +1566,9 @@
                 fMq = Astro.NextMoonQuarter(fMq);
             }
             
-            // 2. Solar Based Festivals (Sankrantis - Highly relevant to HP)
+            // 2. Solar Based Festivals (Sankrantis) - Extended from 400 to 1850 days (~5 years)
             let tSun = new Astro.AstroTime(date);
-            for(let i=0; i<=400; i++) {
+            for(let i=0; i<=1850; i++) {
                 let t1 = tSun.AddDays(i);
                 let t2 = tSun.AddDays(i+1);
                 let s1 = getSiderealLongitude('Sun', t1);
@@ -1575,6 +1594,13 @@
                 }
             });
             cache.festivals = Array.from(festivalMap.values()).sort((a,b) => a.date - b.date);
+
+            // Add computed festivals to the main events list
+            cache.festivals.forEach(f => {
+                cache.events.push({ name: f.name, date: f.date, type: 'Festival' });
+            });
+            // Re-sort the events array so festivals fall inline with everything else
+            cache.events.sort((a,b) => a.date - b.date);
 
             cache.panchak.upcoming = [];
             let currentSid = getSiderealLongitude('Moon', time);
@@ -1613,13 +1639,14 @@
         function renderFestivals() {
             let content = '<h2 class="text-xl font-bold text-purple-800 mb-3 border-b border-purple-100 pb-2">Upcoming Hindu Festivals</h2><ul class="space-y-1">';
             if (cache.festivals.length === 0) content += '<li class="text-sm text-gray-500 p-2">No festivals calculated in current range.</li>';
-            else cache.festivals.slice(0, 8).forEach(f => {
+            else cache.festivals.slice(0, currentLimits.defaultFestivals).forEach(f => {
                 content += `<li class="p-2 border-b border-gray-100 last:border-none hover:bg-gray-50 rounded flex justify-between items-center transition-colors">
                     <span class="font-medium text-purple-700">${f.name}</span>
                     <span class="text-sm text-gray-600 font-semibold">${f.date.toLocaleDateString('en-IN', {day:'numeric', month:'short', year:'numeric'})}</span>
                 </li>`;
             });
             content += '</ul>';
+            content += getPaginationButtons('defaultFestivals', cache.festivals.length);
             document.getElementById('festivals-container').innerHTML = content;
         }
 
@@ -1737,11 +1764,13 @@
         }
 
         function renderEvents() {
-            let content = '<h2 class="card-title">Astronomical Events</h2><ul class="space-y-1">';
+            let content = '<h2 class="card-title">Upcoming Events</h2><ul class="space-y-1">';
             cache.events.slice(0, currentLimits.defaultEvents).forEach((e, i) => {
                 let badge = '';
                 if(e.type === 'Occultation') badge = `<span class="bg-purple-100 text-purple-700 text-[10px] px-2 py-0.5 rounded-full font-bold ml-2">OCCULTATION</span>`;
                 if(e.type === 'Transit') badge = `<span class="bg-orange-100 text-orange-700 text-[10px] px-2 py-0.5 rounded-full font-bold ml-2">TRANSIT</span>`;
+                if(e.type === 'Festival') badge = `<span class="bg-pink-100 text-pink-700 text-[10px] px-2 py-0.5 rounded-full font-bold ml-2">FESTIVAL</span>`;
+                if(e.type === 'Opposition') badge = `<span class="bg-blue-100 text-blue-700 text-[10px] px-2 py-0.5 rounded-full font-bold ml-2">OPPOSITION</span>`;
                 content += `<li class="list-item" onclick="handleEventClick(${i})">
                     <div class="flex justify-between items-center">
                         <span class="font-medium text-gray-800">${e.name} ${badge}</span>
@@ -1794,17 +1823,16 @@
             let illustration = ''; let extraInfo = ''; let visibilityHtml = '';
             let astroTime = new Astro.AstroTime(e.date);
 
-            if (e.type === 'Phase') {
-                let sunTrop = getGeocentricApparentLongitude('Sun', astroTime);
-                let moonTrop = getGeocentricApparentLongitude('Moon', astroTime);
-                let phaseAngle = pyMod(moonTrop - sunTrop, 360);
-                illustration = getMoonSVG(phaseAngle);
-                let alt = Astro.Horizon(astroTime, observer, Astro.Equator('Moon', astroTime, observer, true, true).ra, Astro.Equator('Moon', astroTime, observer, true, true).dec, 'normal').altitude;
-                visibilityHtml = alt > 0 ? `<span class="text-green-600 bg-green-50 px-3 py-1 rounded-full text-sm font-semibold">Moon is above horizon (${alt.toFixed(1)}°)</span>` : `<span class="text-red-600 bg-red-50 px-3 py-1 rounded-full text-sm font-semibold">Moon is below horizon</span>`;
-                extraInfo = `Exact phase angle: ${phaseAngle.toFixed(2)}°`;
-            } else if (e.type === 'Season') {
-                illustration = `<svg viewBox="0 0 100 100" class="w-32 h-32 mx-auto"><circle cx="50" cy="50" r="40" fill="#fbbf24" opacity="0.2"/><circle cx="50" cy="50" r="20" fill="#3b82f6" /><line x1="20" y1="20" x2="80" y2="80" stroke="#1e293b" stroke-width="2" stroke-dasharray="4" /></svg>`;
-                extraInfo = `Earth's axial tilt aligns for the ${e.name}.`;
+            if (e.type === 'Opposition') {
+                illustration = `<svg viewBox="0 0 100 100" class="w-32 h-32 mx-auto"><circle cx="50" cy="50" r="10" fill="#fbbf24"/><circle cx="15" cy="50" r="6" fill="#3b82f6"/><circle cx="85" cy="50" r="8" fill="#e2e8f0"/></svg>`;
+                extraInfo = `<strong>${e.planet}</strong> is exactly opposite the Sun in the sky. It rises at sunset, is visible all night, and appears at its largest and brightest for the year!`;
+                let eq = Astro.Equator(e.planet, astroTime, observer, true, true);
+                let alt = Astro.Horizon(astroTime, observer, eq.ra, eq.dec, 'normal').altitude;
+                visibilityHtml = alt > 0 ? `<span class="text-green-600 bg-green-50 px-3 py-1 rounded-full text-sm font-semibold">Above Horizon (${alt.toFixed(1)}°)</span>` : `<span class="text-red-600 bg-red-50 px-3 py-1 rounded-full text-sm font-semibold">Below Horizon</span>`;
+            } else if (e.type === 'Festival') {
+                illustration = `<div class="text-6xl my-4 drop-shadow-md">✨🪔</div>`;
+                extraInfo = `Traditional Hindu/Himachali Festival computed from current planetary positions.`;
+                visibilityHtml = `<span class="text-pink-600 bg-pink-50 px-3 py-1 rounded-full text-sm font-semibold border border-pink-200">Cultural Event</span>`;
             } else if (e.type === 'Conjunction' || e.type === 'Occultation' || e.type === 'Transit') {
                 let sep = e.sep || 0;
                 illustration = `<canvas id="conjunction-canvas" width="800" height="800" class="w-full max-w-[300px] aspect-square mx-auto rounded-lg shadow-inner cursor-crosshair" style="background: #0f172a"></canvas>
