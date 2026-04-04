@@ -2498,7 +2498,7 @@
                 
                 // X component: cx - r * sin(alpha) puts 90 deg (East) on the LEFT.
                 // Y component: cy - r * cos(alpha) puts 0 deg (North) on the TOP.
-                const xComp = cx - rComp * Math.sin(azRadComp);
+                const xComp = cx + rComp * Math.sin(azRadComp);
                 const yComp = cy - rComp * Math.cos(azRadComp);
 
                 // Draw a targeting reticle
