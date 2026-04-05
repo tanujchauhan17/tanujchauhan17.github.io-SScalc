@@ -356,16 +356,16 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Local Sky Chart -->
-                <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col items-center">
-                    <div class="w-full flex justify-between items-center mb-2 px-2">
+                <div id="sky-chart-panel" class="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col items-center">
+                    <div class="w-full flex justify-between items-center mb-2 px-2 max-w-[800px]">
                         <h3 class="text-lg font-bold text-gray-800">Local Sky Chart (Horizon)</h3>
                         <button id="ar-camera-btn" class="bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-bold py-1.5 px-3 rounded-full transition-colors flex items-center gap-1 shadow-sm"><span class="text-base leading-none">📷</span> AR Camera</button>
                     </div>
                     
-                    <div class="flex w-full gap-3 items-center justify-center">
-                        <div id="sky-canvas-wrapper" class="relative flex-1 max-w-[400px] aspect-square rounded-full shadow-inner overflow-hidden border-2 border-gray-300">
+                    <div id="ar-split-container" class="flex w-full gap-3 items-center justify-center transition-all duration-300">
+                        <button id="ar-close-btn" class="hidden absolute top-4 right-4 z-[1300] bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full shadow-lg transition-colors flex items-center gap-2"><span class="text-xl leading-none">&times;</span> Close AR Mode</button>
+                        
+                        <div id="sky-canvas-wrapper" class="relative flex-1 max-w-[400px] aspect-square rounded-full shadow-inner overflow-hidden border-2 border-gray-300 bg-gray-50 flex items-center justify-center">
                             <canvas id="sky-canvas" width="400" height="400" class="w-full h-full block cursor-crosshair"></canvas>
                         </div>
                         
@@ -660,28 +660,29 @@
             }
         });
 
-        latitudeInput.addEventListener('input', () => { presetLocationInput.value = 'custom'; });
-        longitudeInput.addEventListener('input', () => { presetLocationInput.value = 'custom'; });
-        
-        function updateVedicHoroscope(dateTimeStr) {
-            if (!dateTimeStr) return;
-            let dtVal = dateTimeStr;
-            // Ensure precise IST parsing regardless of user local timezone settings
-            if (dtVal.length === 16) { dtVal += ':00+05:30'; } 
-            let d = new Date(dtVal);
-            if (isNaN(d.getTime())) return;
-            let t = new Astro.AstroTime(d);
-            let lat = parseFloat(latitudeInput.value);
-            let lon = parseFloat(longitudeInput.value);
-            if (document.getElementById('latitudeDirection').value === 'S') lat = -Math.abs(lat);
-            if (document.getElementById('longitudeDirection').value === 'W') lon = -Math.abs(lon);
-            let ayanamsha = getAyanamsha(d);
-            populateHoroscope(t, d, lat, lon, ayanamsha);
-        }
+        // Reusable function to close AR Mode
+        function closeARMode() {
+            const splitContainer = document.getElementById('ar-split-container');
+            const skyWrapper = document.getElementById('sky-canvas-wrapper');
+            const camWrapper = document.getElementById('camera-wrapper');
+            const closeBtn = document.getElementById('ar-close-btn');
+            const videoEl = document.getElementById('ar-video');
 
-        chartDatetimeInput.addEventListener('change', (e) => {
-            updateVedicHoroscope(e.target.value);
-        });
+            if (videoEl && videoEl.srcObject) {
+                videoEl.srcObject.getTracks().forEach(t => t.stop());
+                videoEl.srcObject = null;
+            }
+            
+            if (camWrapper) camWrapper.classList.add('hidden');
+            if (closeBtn) closeBtn.classList.add('hidden');
+            
+            if (splitContainer) splitContainer.className = 'flex w-full gap-3 items-center justify-center transition-all duration-300';
+            if (skyWrapper) skyWrapper.className = 'relative flex-1 max-w-[400px] aspect-square rounded-full shadow-inner overflow-hidden border-2 border-gray-300 bg-gray-50 flex items-center justify-center';
+            if (camWrapper) camWrapper.className = 'hidden relative flex-1 max-w-[400px] aspect-square rounded-xl shadow-inner overflow-hidden border-2 border-red-300 bg-black';
+            
+            const skyCanvas = document.getElementById('sky-canvas');
+            if (skyCanvas) skyCanvas.className = 'w-full h-full block cursor-crosshair';
+        }
 
         // Charts Modal
         const chartsModal = document.getElementById('charts-modal');
@@ -690,52 +691,76 @@
             updateCharts();
         });
         
+        // Chart View Toggle Logic
+        const viewSkyBtn = document.getElementById('view-sky-btn');
+        const viewSsBtn = document.getElementById('view-ss-btn');
+        const skyChartPanel = document.getElementById('sky-chart-panel');
+        const ssChartPanel = document.getElementById('ss-chart-panel');
+        const ssScaleBtn = document.getElementById('ss-scale-btn');
+
+        if (viewSkyBtn && viewSsBtn) {
+            viewSkyBtn.addEventListener('click', () => {
+                viewSkyBtn.className = 'bg-white shadow-sm text-blue-700 font-bold px-4 py-1.5 rounded transition';
+                viewSsBtn.className = 'text-gray-600 hover:text-gray-800 font-medium px-4 py-1.5 rounded transition';
+                if (skyChartPanel) skyChartPanel.classList.remove('hidden');
+                if (ssChartPanel) ssChartPanel.classList.add('hidden');
+                if (ssScaleBtn) ssScaleBtn.classList.add('hidden');
+            });
+
+            viewSsBtn.addEventListener('click', () => {
+                viewSsBtn.className = 'bg-white shadow-sm text-blue-700 font-bold px-4 py-1.5 rounded transition';
+                viewSkyBtn.className = 'text-gray-600 hover:text-gray-800 font-medium px-4 py-1.5 rounded transition';
+                if (ssChartPanel) ssChartPanel.classList.remove('hidden');
+                if (skyChartPanel) skyChartPanel.classList.add('hidden');
+                if (ssScaleBtn) ssScaleBtn.classList.remove('hidden');
+                updateCharts();
+            });
+        }
+
         // Stop camera when closing charts modal
         document.getElementById('charts-modal-close-btn').addEventListener('click', () => {
             chartsModal.classList.add('hidden');
-            const videoEl = document.getElementById('ar-video');
-            if (videoEl && videoEl.srcObject) {
-                videoEl.srcObject.getTracks().forEach(t => t.stop());
-                videoEl.srcObject = null;
-            }
-            document.getElementById('camera-wrapper').classList.add('hidden');
-            const btn = document.getElementById('ar-camera-btn');
-            btn.innerHTML = '<span class="text-base leading-none">📷</span> AR Camera';
-            btn.classList.replace('bg-red-100', 'bg-blue-100');
-            btn.classList.replace('text-red-700', 'text-blue-700');
+            closeARMode();
         });
 
-        // AR Camera Toggle Logic
+        // AR Camera Fullscreen Toggle Logic
         document.getElementById('ar-camera-btn').addEventListener('click', async () => {
-            const btn = document.getElementById('ar-camera-btn');
-            const wrapper = document.getElementById('camera-wrapper');
+            const splitContainer = document.getElementById('ar-split-container');
+            const skyWrapper = document.getElementById('sky-canvas-wrapper');
+            const camWrapper = document.getElementById('camera-wrapper');
+            const closeBtn = document.getElementById('ar-close-btn');
             const videoEl = document.getElementById('ar-video');
             
-            if (wrapper.classList.contains('hidden')) {
+            if (camWrapper.classList.contains('hidden')) {
                 try {
-                    // Request rear-facing camera
                     const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
                     videoEl.srcObject = stream;
-                    wrapper.classList.remove('hidden');
-                    btn.innerHTML = '<span class="text-base font-black leading-none">✖</span> Close AR';
-                    btn.classList.replace('bg-blue-100', 'bg-red-100');
-                    btn.classList.replace('text-blue-700', 'text-red-700');
+                    
+                    camWrapper.classList.remove('hidden');
+                    closeBtn.classList.remove('hidden');
+                    
+                    // Force the wrapper container to full-screen
+                    splitContainer.className = 'fixed inset-0 z-[1200] flex flex-col bg-black w-full h-full m-0 p-0';
+                    
+                    // Top half: Sky Chart perfectly scaled
+                    skyWrapper.className = 'relative w-full h-1/2 flex items-center justify-center overflow-hidden border-b-2 border-gray-800 bg-gray-900';
+                    
+                    // Bottom half: Camera feed seamlessly stretched
+                    camWrapper.className = 'relative w-full h-1/2 overflow-hidden bg-black';
+                    
+                    // Constraint to ensure Sky Chart canvas remains a proportional square (no distortion)
+                    document.getElementById('sky-canvas').className = 'max-h-full max-w-full aspect-square block cursor-crosshair';
+                    
                 } catch (err) {
                     console.error('Camera error:', err);
                     alert('Unable to access camera. Please ensure permissions are granted and you are on a secure (HTTPS) connection.');
                 }
             } else {
-                // Shut down camera
-                if (videoEl.srcObject) {
-                    videoEl.srcObject.getTracks().forEach(t => t.stop());
-                    videoEl.srcObject = null;
-                }
-                wrapper.classList.add('hidden');
-                btn.innerHTML = '<span class="text-base leading-none">📷</span> AR Camera';
-                btn.classList.replace('bg-red-100', 'bg-blue-100');
-                btn.classList.replace('text-red-700', 'text-blue-700');
+                closeARMode();
             }
         });
+
+        document.getElementById('ar-close-btn').addEventListener('click', closeARMode);
 
         document.getElementById('chart-invert-btn').addEventListener('click', () => {
             chartInverted = !chartInverted;
@@ -799,15 +824,16 @@
 
         // Scale Toggle Logic
         window.ssScaleMode = 'log'; // 'log' or 'true'
-        const ssScaleBtn = document.getElementById('ss-scale-btn');
-        ssScaleBtn.addEventListener('click', () => {
-            window.ssScaleMode = window.ssScaleMode === 'log' ? 'true' : 'log';
-            ssScaleBtn.textContent = `SS Scale: ${window.ssScaleMode === 'log' ? 'Logarithmic' : 'True Scale'}`;
-            
-            // Reset SS zoom/pan on scale change
-            window.ssZoom = 1; window.ssPanX = 0; window.ssPanY = 0;
-            updateCharts();
-        });
+        if (ssScaleBtn) {
+            ssScaleBtn.addEventListener('click', () => {
+                window.ssScaleMode = window.ssScaleMode === 'log' ? 'true' : 'log';
+                ssScaleBtn.textContent = `SS Scale: ${window.ssScaleMode === 'log' ? 'Logarithmic' : 'True Scale'}`;
+                
+                // Reset SS zoom/pan on scale change
+                window.ssZoom = 1; window.ssPanX = 0; window.ssPanY = 0;
+                updateCharts();
+            });
+        }
 
         // Sky Chart Zoom & Pan Logic
         // State for device orientation
@@ -2077,7 +2103,7 @@
                 svgHtml = `<svg viewBox="0 0 100 100" class="w-32 h-32 mx-auto drop-shadow-sm"><circle cx="50" cy="50" r="40" fill="#FDE047" /><circle cx="${50 + dist}" cy="50" r="39.5" fill="#1f2937" /></svg>`;
             } else {
                 let moonFill = (e.kind === 'total') ? '#ef4444' : '#e2e8f0'; 
-                let shadowFill = (e.kind === 'total') ? 'rgba(0,0,0,0.4)' : 'rgba(0,0,0,0.65)';
+                let shadowFill = (e.kind === 'total') ? 'rgba(0,0,0,0.65)' : 'rgba(0,0,0,0.4)';
                 svgHtml = `<svg viewBox="0 0 100 100" class="w-32 h-32 mx-auto rounded-full overflow-hidden" style="background: #0f172a"><circle cx="50" cy="50" r="25" fill="${moonFill}" /><circle cx="${50 - dist}" cy="50" r="45" fill="${shadowFill}" /></svg>`;
             }
 
