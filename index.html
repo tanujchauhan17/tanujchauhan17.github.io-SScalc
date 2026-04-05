@@ -359,9 +359,37 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Local Sky Chart -->
                 <div class="bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col items-center">
-                    <h3 class="text-lg font-bold text-gray-800 mb-2">Local Sky Chart (Horizon)</h3>
-                    <div class="relative w-full max-w-[400px] aspect-square rounded-full shadow-inner overflow-hidden border-2 border-gray-300">
-                        <canvas id="sky-canvas" width="400" height="400" class="w-full h-full block cursor-crosshair"></canvas>
+                    <div class="w-full flex justify-between items-center mb-2 px-2">
+                        <h3 class="text-lg font-bold text-gray-800">Local Sky Chart (Horizon)</h3>
+                        <button id="ar-camera-btn" class="bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-bold py-1.5 px-3 rounded-full transition-colors flex items-center gap-1 shadow-sm"><span class="text-base leading-none">📷</span> AR Camera</button>
+                    </div>
+                    
+                    <div class="flex w-full gap-3 items-center justify-center">
+                        <div id="sky-canvas-wrapper" class="relative flex-1 max-w-[400px] aspect-square rounded-full shadow-inner overflow-hidden border-2 border-gray-300">
+                            <canvas id="sky-canvas" width="400" height="400" class="w-full h-full block cursor-crosshair"></canvas>
+                        </div>
+                        
+                        <div id="camera-wrapper" class="hidden relative flex-1 max-w-[400px] aspect-square rounded-xl shadow-inner overflow-hidden border-2 border-red-300 bg-black">
+                            <video id="ar-video" autoplay playsinline class="w-full h-full object-cover"></video>
+                            
+                            <!-- Exact Center Crosshair Overlay -->
+                            <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <svg width="60" height="60" viewBox="0 0 60 60" class="text-red-500 opacity-90 drop-shadow-lg">
+                                    <!-- Cross lines -->
+                                    <line x1="30" y1="0" x2="30" y2="20" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="30" y1="40" x2="30" y2="60" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="0" y1="30" x2="20" y2="30" stroke="currentColor" stroke-width="2"/>
+                                    <line x1="40" y1="30" x2="60" y2="30" stroke="currentColor" stroke-width="2"/>
+                                    <!-- Center Reticle -->
+                                    <circle cx="30" cy="30" r="10" stroke="currentColor" stroke-width="2" fill="none"/>
+                                    <circle cx="30" cy="30" r="2" fill="currentColor"/>
+                                </svg>
+                            </div>
+                            
+                            <div class="absolute bottom-2 left-0 right-0 text-center pointer-events-none">
+                                <span class="bg-black/60 text-white text-[9px] px-2 py-1 rounded-full font-mono uppercase tracking-widest">Align with Sky Map Target</span>
+                            </div>
+                        </div>
                     </div>
                     <p class="text-xs text-gray-500 mt-3 text-center">Center is Zenith. Edge is Horizon.<br/>N = North, E = East (Looking Up)<br/><span class="font-semibold">Scroll & Drag to Zoom/Pan</span></p>
                 </div>
@@ -661,7 +689,53 @@
             chartsModal.classList.remove('hidden');
             updateCharts();
         });
-        document.getElementById('charts-modal-close-btn').addEventListener('click', () => chartsModal.classList.add('hidden'));
+        
+        // Stop camera when closing charts modal
+        document.getElementById('charts-modal-close-btn').addEventListener('click', () => {
+            chartsModal.classList.add('hidden');
+            const videoEl = document.getElementById('ar-video');
+            if (videoEl && videoEl.srcObject) {
+                videoEl.srcObject.getTracks().forEach(t => t.stop());
+                videoEl.srcObject = null;
+            }
+            document.getElementById('camera-wrapper').classList.add('hidden');
+            const btn = document.getElementById('ar-camera-btn');
+            btn.innerHTML = '<span class="text-base leading-none">📷</span> AR Camera';
+            btn.classList.replace('bg-red-100', 'bg-blue-100');
+            btn.classList.replace('text-red-700', 'text-blue-700');
+        });
+
+        // AR Camera Toggle Logic
+        document.getElementById('ar-camera-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('ar-camera-btn');
+            const wrapper = document.getElementById('camera-wrapper');
+            const videoEl = document.getElementById('ar-video');
+            
+            if (wrapper.classList.contains('hidden')) {
+                try {
+                    // Request rear-facing camera
+                    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                    videoEl.srcObject = stream;
+                    wrapper.classList.remove('hidden');
+                    btn.innerHTML = '<span class="text-base font-black leading-none">✖</span> Close AR';
+                    btn.classList.replace('bg-blue-100', 'bg-red-100');
+                    btn.classList.replace('text-blue-700', 'text-red-700');
+                } catch (err) {
+                    console.error('Camera error:', err);
+                    alert('Unable to access camera. Please ensure permissions are granted and you are on a secure (HTTPS) connection.');
+                }
+            } else {
+                // Shut down camera
+                if (videoEl.srcObject) {
+                    videoEl.srcObject.getTracks().forEach(t => t.stop());
+                    videoEl.srcObject = null;
+                }
+                wrapper.classList.add('hidden');
+                btn.innerHTML = '<span class="text-base leading-none">📷</span> AR Camera';
+                btn.classList.replace('bg-red-100', 'bg-blue-100');
+                btn.classList.replace('text-red-700', 'text-blue-700');
+            }
+        });
 
         document.getElementById('chart-invert-btn').addEventListener('click', () => {
             chartInverted = !chartInverted;
