@@ -669,6 +669,30 @@
             }
         });
 
+        latitudeInput.addEventListener('input', () => { presetLocationInput.value = 'custom'; });
+        longitudeInput.addEventListener('input', () => { presetLocationInput.value = 'custom'; });
+        
+        function updateVedicHoroscope(dateTimeStr) {
+            if (!dateTimeStr) return;
+            let dtVal = dateTimeStr;
+            // Ensure precise IST parsing regardless of user local timezone settings
+            if (dtVal.length === 16) { dtVal += ':00+05:30'; } 
+            let d = new Date(dtVal);
+            if (isNaN(d.getTime())) return;
+            let t = new Astro.AstroTime(d);
+            let lat = parseFloat(latitudeInput.value);
+            let lon = parseFloat(longitudeInput.value);
+            if (document.getElementById('latitudeDirection').value === 'S') lat = -Math.abs(lat);
+            if (document.getElementById('longitudeDirection').value === 'W') lon = -Math.abs(lon);
+            let ayanamsha = getAyanamsha(d);
+            populateHoroscope(t, d, lat, lon, ayanamsha);
+        }
+
+        chartDatetimeInput.addEventListener('change', (e) => {
+            updateVedicHoroscope(e.target.value);
+        });
+
+
         // Reusable function to close AR Mode
         function closeARMode() {
             const splitContainer = document.getElementById('ar-split-container');
