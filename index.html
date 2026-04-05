@@ -358,13 +358,7 @@
 
                 <div id="sky-chart-panel" class="w-full bg-gray-50 p-4 rounded-xl border border-gray-200 flex flex-col items-center">
                     <div class="w-full flex justify-between items-center mb-2 px-2 max-w-[800px]">
-                        <div class="flex flex-col">
-                            <h3 class="text-lg font-bold text-gray-800">Local Sky Chart (Horizon)</h3>
-                            <div class="flex items-center gap-2 mt-1" title="Magnetic Declination / Compass Offset">
-                                <span class="text-[10px] font-bold text-gray-500">COMPASS OFFSET: <span id="offset-val" class="text-blue-600">+1.5°</span></span>
-                                <input type="range" id="compass-offset" min="-45" max="45" value="1.5" step="0.1" class="w-20 h-1.5 bg-gray-300 rounded-lg appearance-none cursor-pointer accent-blue-500">
-                            </div>
-                        </div>
+                        <h3 class="text-lg font-bold text-gray-800">Local Sky Chart (Horizon)</h3>
                         <button id="ar-camera-btn" class="bg-blue-100 hover:bg-blue-200 text-blue-700 text-xs font-bold py-1.5 px-3 rounded-full transition-colors flex items-center gap-1 shadow-sm"><span class="text-base leading-none">📷</span> AR Camera</button>
                     </div>
                     
@@ -904,19 +898,6 @@
         // State for device orientation
         let deviceAzimuth = null;
         let deviceAltitude = null;
-        window.compassOffset = 1.5; // Default magnetic declination for Shimla
-
-        const offsetSlider = document.getElementById('compass-offset');
-        const offsetVal = document.getElementById('offset-val');
-        if (offsetSlider) {
-            offsetSlider.addEventListener('input', (e) => {
-                window.compassOffset = parseFloat(e.target.value);
-                if (offsetVal) offsetVal.textContent = (window.compassOffset > 0 ? '+' : '') + window.compassOffset + '°';
-                if (!document.getElementById('charts-modal').classList.contains('hidden')) {
-                    updateCharts();
-                }
-            });
-        }
 
         // Listen for device orientation (Optimized for Android Chrome)
         window.addEventListener('deviceorientationabsolute', (e) => {
@@ -2742,8 +2723,7 @@
                 // Azimuth Mapping:
                 // Skymap is mirrored (East on Left). Compass increases Clockwise.
                 // We convert alpha to radians and ensure it maps to the same orientation as stars.
-                const adjustedAzimuth = (deviceAzimuth + window.compassOffset + 360) % 360;
-                const azRadComp = adjustedAzimuth * Math.PI / 180;
+                const azRadComp = deviceAzimuth * Math.PI / 180;
                 
                 // X component: cx - r * sin(alpha) puts 90 deg (East) on the LEFT.
                 // Y component: cy - r * cos(alpha) puts 0 deg (North) on the TOP.
