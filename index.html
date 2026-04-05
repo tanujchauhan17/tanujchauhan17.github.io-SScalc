@@ -372,6 +372,15 @@
                         <div id="camera-wrapper" class="hidden relative flex-1 max-w-[400px] aspect-square rounded-xl shadow-inner overflow-hidden border-2 border-red-300 bg-black">
                             <video id="ar-video" autoplay playsinline class="w-full h-full object-cover"></video>
                             
+                            <!-- NEW: Transparent ISO Controls Overlay -->
+                            <div id="exposure-controls" class="hidden absolute top-4 left-4 right-4 bg-transparent p-2 flex flex-col gap-2 z-[1500] pointer-events-auto">
+                                <div class="flex justify-between items-center drop-shadow-md">
+                                    <label class="text-white text-xs font-bold uppercase tracking-wider flex items-center gap-1 drop-shadow-lg"><span>📸</span> Camera ISO</label>
+                                    <button id="reset-iso-btn" class="bg-blue-500 hover:bg-blue-600 border border-white/50 text-white text-[10px] px-3 py-1 rounded-full font-bold transition-colors shadow-lg">RESET</button>
+                                </div>
+                                <input type="range" id="iso-slider" class="w-full accent-white cursor-pointer h-1.5 bg-white/30 rounded-lg appearance-none backdrop-blur-sm border border-white/20 shadow-md">
+                            </div>
+
                             <!-- Exact Center Crosshair Overlay -->
                             <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
                                 <svg width="60" height="60" viewBox="0 0 60 60" class="text-red-500 opacity-90 drop-shadow-lg">
@@ -667,6 +676,7 @@
             const camWrapper = document.getElementById('camera-wrapper');
             const closeBtn = document.getElementById('ar-close-btn');
             const videoEl = document.getElementById('ar-video');
+            const exposureControls = document.getElementById('exposure-controls');
 
             if (videoEl && videoEl.srcObject) {
                 videoEl.srcObject.getTracks().forEach(t => t.stop());
@@ -675,6 +685,7 @@
             
             if (camWrapper) camWrapper.classList.add('hidden');
             if (closeBtn) closeBtn.classList.add('hidden');
+            if (exposureControls) exposureControls.classList.add('hidden');
             
             if (splitContainer) splitContainer.className = 'flex w-full gap-3 items-center justify-center transition-all duration-300';
             if (skyWrapper) skyWrapper.className = 'relative flex-1 max-w-[400px] aspect-square rounded-full shadow-inner overflow-hidden border-2 border-gray-300 bg-gray-50 flex items-center justify-center';
@@ -730,6 +741,8 @@
             const camWrapper = document.getElementById('camera-wrapper');
             const closeBtn = document.getElementById('ar-close-btn');
             const videoEl = document.getElementById('ar-video');
+            const exposureControls = document.getElementById('exposure-controls');
+            const isoSlider = document.getElementById('iso-slider');
             
             if (camWrapper.classList.contains('hidden')) {
                 try {
@@ -751,6 +764,52 @@
                     // Constraint to ensure Sky Chart canvas remains a proportional square (no distortion)
                     document.getElementById('sky-canvas').className = 'max-h-full max-w-full aspect-square block cursor-crosshair';
                     
+                    // Setup Hardware Exposure Controls (if supported by device)
+                    const track = stream.getVideoTracks()[0];
+                    // Add small delay to ensure capabilities are populated
+                    setTimeout(() => {
+                        const capabilities = track.getCapabilities();
+                        if (capabilities.iso) {
+                            exposureControls.classList.remove('hidden');
+                            
+                            isoSlider.min = capabilities.iso.min || 100;
+                            isoSlider.max = capabilities.iso.max || 1600;
+                            isoSlider.step = capabilities.iso.step || 10;
+                            isoSlider.value = track.getSettings().iso || capabilities.iso.min || 100;
+
+                            const resetBtn = document.getElementById('reset-iso-btn');
+
+                            isoSlider.oninput = async (e) => {
+                                try {
+                                    // Apply manual ISO adjustment
+                                    await track.applyConstraints({ advanced: [{ exposureMode: 'manual', iso: parseFloat(e.target.value) }] });
+                                    // Dim the RESET button when user takes manual control
+                                    resetBtn.className = 'bg-white/20 hover:bg-white/30 border border-white/50 text-white text-[10px] px-3 py-1 rounded-full font-bold transition-colors shadow-lg backdrop-blur-sm';
+                                } catch (err) { console.warn('ISO tweak skipped:', err); }
+                            };
+
+                            resetBtn.onclick = async () => {
+                                try {
+                                    // Reset camera to automatic exposure mode
+                                    await track.applyConstraints({ advanced: [{ exposureMode: 'continuous' }] });
+                                    
+                                    // Reset the visual slider back to the auto value
+                                    setTimeout(() => {
+                                        isoSlider.value = track.getSettings().iso || capabilities.iso.min || 100;
+                                    }, 200);
+
+                                    // Highlight the RESET button to show it is active
+                                    resetBtn.className = 'bg-blue-500 hover:bg-blue-600 border border-white/50 text-white text-[10px] px-3 py-1 rounded-full font-bold transition-colors shadow-lg';
+                                } catch (err) {
+                                    console.warn('Auto exposure reset failed:', err);
+                                }
+                            };
+                        } else {
+                            exposureControls.classList.add('hidden');
+                            console.warn('Hardware ISO adjustment is not supported by this device.');
+                        }
+                    }, 500);
+
                 } catch (err) {
                     console.error('Camera error:', err);
                     alert('Unable to access camera. Please ensure permissions are granted and you are on a secure (HTTPS) connection.');
